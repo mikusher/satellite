@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Use java property log4j.configurationFile to specify log4j2.xml location if not available in classpath
+- Dlog4j.configurationFile="/Users/mikusher/IdeaProjects/Satellite/src/run/resources/log4j2.xml"
+-->
+<configuration>
+    <Properties>
+        <Property name="log-path">/Users/mikusher/IdeaProjects/Satellite/src/run/logs</Property>
+    </Properties>
+    <appenders>
+        <RollingFile name="RollingFile" fileName="${log-path}/json-logger.json" filePattern="${log-path}/%d{yyyyMMdd}_json-logger-%i.json">
+            <PatternLayout>
+                <pattern>%m%n</pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="1 KB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="4"/>
+        </RollingFile>
+        <Console name="Console" target="System.out">
+            <PatternLayout>
+                <pattern>%m%n</pattern>
+            </PatternLayout>
+        </Console>
+    </appenders>
+    <Loggers>
+        <Logger name="JSONLogger" level="debug" additivity="false">
+            <AppenderRef ref="RollingFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Root level="debug">
+            <AppenderRef ref="RollingFile"/>
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</configuration>
