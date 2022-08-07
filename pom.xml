@@ -2,14 +2,14 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.checkmarx</groupId>
+  <groupId>io.github.mikusher</groupId>
   <artifactId>satellite</artifactId>
-  <version>0.0.1</version>
+  <version>1.0.0</version>
   <packaging>jar</packaging>
   <scm>
-    <connection>scm:git:git://github.com/CheckmarxDev/Satellite.git</connection>
-    <developerConnection>scm:git:ssh://github.com/CheckmarxDev/Satellite.git</developerConnection>
-    <url>https://github.com/CheckmarxDev/Satellite.git</url>
+    <connection>scm:git:git://github.com/mikusher/satellite.git</connection>
+    <developerConnection>scm:git:ssh://github.com/mikusher/satellite.git</developerConnection>
+    <url>https://github.com/mikusher/satellite.git</url>
   </scm>
   <name>Satellite</name>
   <url>http://maven.apache.org</url>
