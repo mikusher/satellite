@@ -13,10 +13,6 @@ public class BooleanConverter implements Converter<Boolean> {
     public static final String TRUE = "TRUE";
     public static final String FALSE = "FALSE";
 
-
-    /**
-     *
-     */
     @Override
     public final Boolean cast(Object source) throws IncorrectTypeException {
 

@@ -12,6 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+/**
+ * @author <a href="mailto:mikusher@gmail.com">Mikusher</a>
+ *
+ */
 public abstract class AbstractJsonLogger implements JsonLogger {
     protected org.slf4j.Logger slf4jLogger;
     private final FastDateFormat formatter;

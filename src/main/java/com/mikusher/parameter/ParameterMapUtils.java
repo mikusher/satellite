@@ -1016,16 +1016,6 @@ public class ParameterMapUtils {
     }
 
 
-    /**
-     * If <code>keys</code>, <code>setter</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param keys   Name of the sequence of keys to find object
-     * @param setter function to apply in integer value
-     * @param map    Map where to set the specified key.
-     * @return
-     */
     public static void setInt(Function<Integer, Integer> setter, ParameterMap map, String... keys) {
 
         if (keys.length == 0) {
@@ -1036,16 +1026,7 @@ public class ParameterMapUtils {
     }
 
 
-    /**
-     * If <code>keys</code>, <code>setter</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param keys   Name of the sequence of keys to find object
-     * @param setter function to apply in long value
-     * @param map    Map where to set the specified key.
-     * @return
-     */
+
     public static void setLong(Function<Long, Long> setter, ParameterMap map, String... keys) {
 
         if (keys.length == 0) {
@@ -1056,16 +1037,6 @@ public class ParameterMapUtils {
     }
 
 
-    /**
-     * If <code>keys</code>, <code>stringList</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param keys       Name of the sequence of keys to find object
-     * @param stringList String list to set in the specified map.
-     * @param map        Map where to set the specified key.
-     * @return
-     */
     public static void setStringList(List<String> stringList, ParameterMap map, String... keys) {
 
         if (keys.length == 0) {
@@ -1076,16 +1047,6 @@ public class ParameterMapUtils {
     }
 
 
-    /**
-     * If <code>keys</code>, <code>mapValue</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param keys     Name of the sequence of keys to find object
-     * @param mapValue Map to set in the specified map.
-     * @param map      Map where to set the specified key.
-     * @return
-     */
     public static void setMap(ParameterMap mapValue, ParameterMap map, String... keys) {
 
         if (keys.length == 0) {
@@ -1096,16 +1057,6 @@ public class ParameterMapUtils {
     }
 
 
-    /**
-     * If <code>keys</code>, <code>stringValue</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param keys        Name of the sequence of keys to find object
-     * @param stringValue String to set in the specified map.
-     * @param map         Map where to set the specified key.
-     * @return
-     */
     public static void setString(String stringValue, ParameterMap map, String... keys) {
 
         if (keys.length == 0) {
@@ -1126,16 +1077,6 @@ public class ParameterMapUtils {
     }
 
 
-    /**
-     * If <code>keys</code>, <code>setter</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param keys   Name of the sequence of keys to find object
-     * @param setter function to apply in map list value
-     * @param map    map where to set the specified key.
-     * @return
-     */
     public static void setMapList(Function<List<ParameterMap>, List<ParameterMap>> setter, ParameterMap map,
                                   String... keys) {
 
@@ -1146,17 +1087,6 @@ public class ParameterMapUtils {
         setMapList(keys[keys.length - 1], setter, navigateMap(map, keys, 0, keys.length - 1));
     }
 
-
-    /**
-     * If <code>keys</code>, <code>setter</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param keys   Name of the sequence of keys to find object
-     * @param setter function to apply in uuid list value
-     * @param map    map where to set the specified key.
-     * @return
-     */
     public static void setUUIDList(Function<List<UUID>, List<UUID>> setter, ParameterMap map, String... keys) {
 
         if (keys.length == 0) {
@@ -1167,16 +1097,6 @@ public class ParameterMapUtils {
     }
 
 
-    /**
-     * If <code>key</code>, <code>setter</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param key    Name of the map key to be set.
-     * @param setter function to apply in uuid list value
-     * @param map    Map where to set the specified key.
-     * @return
-     */
     public static void setUUIDList(String key, Function<List<UUID>, List<UUID>> setter, ParameterMap map) {
 
         List<UUID> value = getUUIDList(key, map);

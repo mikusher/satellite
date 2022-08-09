@@ -6,13 +6,14 @@
   <artifactId>satellite</artifactId>
   <version>1.0.0</version>
   <packaging>jar</packaging>
-  <scm>
-    <connection>scm:git:git://github.com/mikusher/satellite.git</connection>
-    <developerConnection>scm:git:ssh://github.com/mikusher/satellite.git</developerConnection>
-    <url>https://github.com/mikusher/satellite.git</url>
-  </scm>
-  <name>Satellite</name>
-  <url>http://maven.apache.org</url>
+
+  <distributionManagement>
+    <repository>
+      <id>github</id>
+      <name>GitHub Mikusher Apache Maven Packages</name>
+      <url>https://maven.pkg.github.com/mikusher/satellite</url>
+    </repository>
+  </distributionManagement>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -20,7 +21,15 @@
     <maven.compiler.target>11</maven.compiler.target>
     <slf4j.version>1.7.36</slf4j.version>
     <log4j.version>2.18.0</log4j.version>
+    <gpg.keyname.version>0xF252D30E</gpg.keyname.version>
   </properties>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>http://www.opensource.org/licenses/mit-license.php</url>
+    </license>
+  </licenses>
 
   <dependencies>
     <dependency>
@@ -74,7 +83,6 @@
       <artifactId>log4j2-ecs-layout</artifactId>
       <version>1.4.0</version>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
@@ -85,7 +93,6 @@
       <artifactId>guava</artifactId>
       <version>18.0</version>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
@@ -94,7 +101,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>3.8.1</version>
+      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -120,12 +127,14 @@
       <version>${log4j.version}</version>
     </dependency>
   </dependencies>
+
   <developers>
     <developer>
       <name>Luis Amilcar Tavares</name>
-      <email>luis.tavares@checkmarx.com</email>
-      <organization>CheckmarxDev</organization>
-      <organizationUrl>https://www.checkmarx.com/</organizationUrl>
+      <email>mikusher@hotmail.com</email>
+      <organization>MikusherBrain</organization>
+      <organizationUrl>https://www.mikusher.com/</organizationUrl>
     </developer>
   </developers>
+
 </project>
