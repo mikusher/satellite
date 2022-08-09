@@ -4,7 +4,7 @@
 
   <groupId>io.github.mikusher</groupId>
   <artifactId>satellite</artifactId>
-  <version>0.0.2</version>
+  <version>0.0.03</version>
   <packaging>jar</packaging>
 
   <distributionManagement>
