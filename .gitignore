@@ -3,9 +3,9 @@
 *.class
 
 # Log file
-logs/*.log
-logs/*.txt
-logs/*.json
+*.log
+*.txt
+*.json
 
 # BlueJ files
 *.ctxt
