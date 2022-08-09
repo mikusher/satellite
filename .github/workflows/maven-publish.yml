@@ -1,4 +1,4 @@
-name: Create package on push to master
+name: Create package on push to master repo
 
 on:
   push:
