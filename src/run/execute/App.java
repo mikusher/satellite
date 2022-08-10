@@ -19,20 +19,20 @@ public class App {
 
         String LOB = "Container";
         String Service = "Transport";
-        String Process = "Add";
+        Integer Process = 10;
         String Reason = "Connection";
 
         _loggerSatellite.error().message("Confirm message 'incompatible Data in document'")
-                .field("LOB", LOB)
+                .setString("LOB", LOB)
                 .field("Service", Service)
-                .field("Process", Process)
+                .setInteger("NumProcess", Process)
                 .field("Reason", Reason)
                 .map("OptionalFields", pMap).log();
 
         _loggerSatellite.debug().message("Confirm message 'incompatible Data in document'")
                 .field("LOB", LOB)
                 .field("Service", Service)
-                .field("Process", Process)
+                .setInteger("Process", Process)
                 .field("Reason", Reason)
                 .map("OptionalFields", pMap).log();
     }

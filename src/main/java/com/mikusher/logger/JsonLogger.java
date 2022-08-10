@@ -10,16 +10,33 @@ import java.util.function.Supplier;
 public interface JsonLogger {
 
     JsonLogger message(String message);
+
     JsonLogger message(Supplier<String> message);
+
     JsonLogger map(String key, Map map);
+
     JsonLogger map(String key, Supplier<Map> map);
+
     JsonLogger list(String key, List list);
+
     JsonLogger list(String key, Supplier<List> list);
+
     JsonLogger field(String key, Object value);
+
     JsonLogger field(String key, Supplier value);
+
     JsonLogger json(String key, JsonElement jsonElement);
+
     JsonLogger json(String key, Supplier<JsonElement> jsonElement);
+
+    // types
+    JsonLogger setString(String key, String text);
+
+    JsonLogger setInteger(String key, Integer value);
+
     JsonLogger exception(String key, Exception exception);
+
     JsonLogger stack();
+
     void log();
 }
