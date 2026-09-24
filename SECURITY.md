@@ -1,33 +1,41 @@
 # Security Policy
 
-Satellite processes structured data and may be used near application trust boundaries. Security reports are treated as first-class engineering issues.
+## Supported code
 
-## Supported versions
-
-Until the 2.x line is released, security fixes are delivered on the latest maintained release line. Older versions should not be assumed to receive fixes.
+The active 2.x work is developed on `satellite-v2-foundation` until it is ready to merge. Security fixes for the legacy API should avoid breaking compatibility where practical.
 
 ## Reporting a vulnerability
 
-Please avoid publishing exploit details in a public issue before a fix is available.
+Please do not open a public issue for a suspected vulnerability.
 
-Use GitHub Security Advisories or private vulnerability reporting when available for this repository. If that channel is unavailable, contact the maintainer privately at `mikusher@hotmail.com`.
+Use GitHub's private vulnerability reporting for this repository when available. Include:
 
-Include, where possible:
-
-- affected version or commit;
+- affected module and version/commit;
 - minimal reproduction steps;
-- security impact and required preconditions;
+- security impact;
 - whether untrusted input is required;
-- suggested mitigation, if known.
+- any suggested mitigation.
 
-## Security design goals
+If private vulnerability reporting is unavailable, contact the repository owner through the contact information in the project metadata and avoid including exploit details in public channels.
 
-The project aims to make unsafe parser and serialization behavior opt-in rather than default.
+## Security model
 
-The 2.x roadmap also includes:
+Satellite treats outbound data movement as an explicit policy boundary. The default egress policy is fail-closed for credentials, secrets and restricted data.
 
-- explicit input-size, collection-size and nesting-depth limits;
-- policy-driven handling of sensitive values;
-- deterministic serialization;
-- fuzzing for parser boundaries;
-- software bill of materials and release provenance.
+Important guarantees of the current 2.x foundation:
+
+- denied values are omitted from sink output;
+- violation reports do not contain the protected value;
+- HMAC tokenization requires at least 32 bytes of secret material;
+- conflicting external key definitions are rejected;
+- the legacy PMAP/XML parser disables DTD/external entity processing;
+- PMAP parsing has finite resource budgets;
+- release publishing does not run on ordinary pushes to the default branch.
+
+## Non-goals
+
+Satellite is not a substitute for authorization, encryption, secrets management, endpoint DLP, consent management or full taint/data-flow analysis. Classification is application-provided metadata and must be reviewed like any other security policy.
+
+## Dependency and supply-chain security
+
+Pull requests are subject to dependency review. CodeQL is configured for Java. The Maven reactor generates a CycloneDX SBOM during `verify`. Release publication refuses snapshot versions.

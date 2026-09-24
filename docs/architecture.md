@@ -1,110 +1,75 @@
-# Satellite modular architecture
+# Satellite architecture
 
-Satellite is a single repository containing independently usable Maven modules.
+Satellite 2.x separates the legacy compatibility surface from a new security-aware egress model.
 
-## Dependency boundaries
-
-```text
-satellite-parametermap                 satellite-egress-core
-        │                                      │
-        │                              satellite-egress-policy
-        │                                      │
-        │                    ┌─────────────────┼──────────────────┐
-        │                    ▼                 ▼                  ▼
-        │          egress-observability  egress-jackson  egress-opentelemetry
-        │
-        └──────────────┐
-                       ▼
-          satellite-parametermap-egress-bridge
-                       ▲
-                       │
-               satellite-egress-core
-               satellite-egress-policy
-```
-
-`satellite-legacy-logging` is intentionally isolated from both product lines.
-
-## Rules
-
-1. `satellite-parametermap` must never depend on an Egress module.
-2. `satellite-egress-core` must never depend on ParameterMap.
-3. Egress policy/adapters may depend only on Egress modules plus their external integration API.
-4. Only `satellite-parametermap-egress-bridge` may depend on both ParameterMap and Egress.
-5. Legacy logging remains isolated and is not a dependency of the new Egress adapters.
-
-## ParameterMap responsibility
-
-ParameterMap remains a general dynamic-data utility:
-
-- typed conversion and retrieval;
-- `ParameterInfoMap` constraints;
-- nested maps/lists;
-- PMAP/XML interoperability;
-- JDBC/conversion utilities.
-
-Parser security is part of this module, including DTD/external-entity blocking and configurable resource limits.
-
-## Egress responsibility
-
-The Egress framework controls application data at output boundaries.
-
-Static key metadata:
-
-- `DataClassification`;
-- `DataCategory`;
-- type information;
-- required/optional schema metadata.
-
-Runtime value metadata:
-
-- `DataOrigin`;
-- `TrustLevel`.
-
-This separation matters because one logical key may receive values from different origins and with different trust levels.
-
-## Policy flow
+## Dependency direction
 
 ```text
-SatelliteMap
-    │
-    ▼
-EgressPolicyEngine
-    │
-    ├── ALLOW ──────► original value
-    ├── REDACT ─────► redacted representation
-    ├── TOKENIZE ───► deterministic pseudonym
-    └── DENY ───────► no output + privacy violation
-    │
-    ▼
-EgressReport
-    │
-    ▼
-approved sink adapter
+satellite-egress-core
+        |
+        v
+satellite-egress-policy
+   |        |        |
+   v        v        v
+slf4j    jackson   opentelemetry
+
+satellite-parametermap ---> satellite-parametermap-egress-bridge
+                                   |
+                                   +----> egress-core + egress-policy
+
+satellite-legacy-logging ---> satellite-parametermap
 ```
 
-The engine is fail-closed. If no rule matches, egress is denied.
+The core has no dependency on SLF4J, Jackson, OpenTelemetry, Spring or a logging backend.
 
-## Security invariants
+## Data model
 
-- secrets/credentials are denied by the default policy;
-- restricted data requires explicit application policy;
-- adapters do not receive or expose raw maps;
-- violations contain metadata and reason codes, never the protected value;
-- duplicate external key names with conflicting security metadata are rejected;
-- HMAC tokenization uses key-name domain separation;
-- output serialization/logging happens only after policy evaluation;
-- ParameterMap bridge rejects unclassified source fields by default.
+A `Key<T>` owns static semantics: external name, Java type, classification and data categories. A `SatelliteEntry<T>` pairs the key/value with runtime metadata such as origin and trust level. `SatelliteMap` is immutable after construction and deliberately exposes no raw `Map<String,Object>` export.
 
-## Current adapters
+Duplicate external key names with conflicting definitions are rejected. This prevents a second key definition from downgrading the classification of a protected field before egress.
 
-- SLF4J;
-- Jackson;
-- OpenTelemetry spans.
+## Egress boundary
 
-Jackson additionally exports `SatelliteSchema` as JSON Schema 2020-12.
+Every supported sink follows the same sequence:
 
-## Compatibility
+1. application creates or bridges a `SatelliteMap`;
+2. `EgressPolicyEngine` evaluates each entry against an `EgressContext`;
+3. `EgressProcessor` applies `ALLOW`, `REDACT`, `TOKENIZE` or `DENY`;
+4. the sink adapter receives only `EgressReport.getOutput()`;
+5. denied operations are represented as metadata-only `PrivacyViolation` records.
 
-The foundation remains Java 11 source-compatible and is verified on Java 11, 17 and 21.
+The engine denies when no rule returns a decision. `DefaultEgressRule` provides conservative baseline behavior, while explicit application rules can be placed before it.
 
-The repository version is currently `2.0.0-SNAPSHOT`. Publication is gated to release/manual workflows and snapshots are rejected by the release job.
+## Threat model
+
+The current design directly addresses:
+
+- accidental secret/credential logging;
+- accidental PII propagation to observability;
+- generic serialization of internal/restricted values;
+- unclassified fields during legacy `ParameterMap` migration;
+- classification downgrade via duplicate external key names;
+- log injection via control characters in the SLF4J adapter;
+- deterministic pseudonymization without unsalted hashes;
+- XML external entity/DTD processing;
+- PMAP parser resource exhaustion through bounded depth, input, entries, collections and text.
+
+It does **not** claim full taint tracking, data-flow analysis, consent management, DLP replacement or regulatory compliance certification.
+
+## Policy design
+
+Rules are ordered. A narrow explicit rule may authorize a specific key/sink use case; the default rule should remain last. This keeps exceptions reviewable and prevents a global permissive switch.
+
+A `purpose` string is mandatory in `EgressContext`. It is descriptive context today and is intentionally available for future purpose-aware policies without changing sink APIs.
+
+## Serialization and observability
+
+Adapters are separate Maven modules so applications pay only for integrations they use. The new SLF4J adapter depends on the API only, not Logback or Log4j. Jackson and OpenTelemetry are likewise optional.
+
+## Legacy compatibility
+
+`satellite-parametermap` remains the compatibility module for the original dynamic map and PMAP format. `satellite-legacy-logging` isolates the old logger and its historical dependencies. The strict bridge is the intended migration path into the egress model.
+
+## Release safety
+
+The reactor is tested on Java 11, 17 and 21. Publishing is release/manual only and refuses `-SNAPSHOT` versions. CodeQL, dependency review and CycloneDX SBOM generation are part of the repository hardening.

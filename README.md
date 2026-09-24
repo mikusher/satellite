@@ -1,48 +1,16 @@
 # Satellite
 
-**Typed dynamic data and security-aware application egress for Java.**
+**Typed dynamic data with security-aware egress controls for Java.**
 
-Satellite is one repository with independent Maven modules. You can use the legacy-style ParameterMap by itself, use the security-aware Egress framework by itself, or connect both through an optional bridge.
+Satellite keeps the useful part of dynamic application data while making the security boundary explicit: values have typed keys, classification and privacy categories; outbound sinks are evaluated by policy before data reaches logs, traces, JSON, storage or the network.
 
-The current development line is `2.0.0-SNAPSHOT` and keeps Java 11 compatibility while CI verifies Java 11, 17 and 21.
+> Status: the 2.x API is under active development on `satellite-v2-foundation`. The legacy `ParameterMap` and logging APIs remain isolated in compatibility modules.
 
-## Modules
+## Why Satellite?
 
-- `satellite-parametermap` — typed dynamic map, conversion helpers, PMAP/XML serialization and legacy schema-like constraints.
-- `satellite-legacy-logging` — the original structured logging API, isolated from the new security model.
-- `satellite-egress-core` — `Key<T>`, immutable `SatelliteMap`, classifications, categories, origin/trust metadata and schema validation.
-- `satellite-egress-policy` — fail-closed policy engine with `ALLOW`, `REDACT`, `TOKENIZE` and `DENY`.
-- `satellite-egress-observability` — policy-enforced SLF4J adapter.
-- `satellite-egress-jackson` — policy-enforced Jackson serialization and JSON Schema 2020-12 export.
-- `satellite-egress-opentelemetry` — policy-enforced OpenTelemetry span attributes.
-- `satellite-parametermap-egress-bridge` — optional strict bridge between ParameterMap and the Egress model.
+Java applications routinely move the same data through maps, JSON, logs, traces and external APIs. A value that is safe in one sink can be a privacy or security incident in another.
 
-ParameterMap does not depend on Egress. Egress does not depend on ParameterMap. Only the bridge knows both.
-
-## ParameterMap
-
-```java
-ParameterMap parameters = new ParameterMap();
-parameters.put("caseNumber", "C12.12343");
-parameters.put("step", "Assignment");
-
-String caseNumber = parameters.getString("caseNumber");
-```
-
-The PMAP/XML parser disables DTD/external entities and supports configurable limits for input size, nesting depth, entry count, collection size and text length.
-
-```java
-StreamedPMapParser parser = new StreamedPMapParser(
-        PMapParserLimits.builder()
-                .maxDepth(32)
-                .maxEntries(5_000)
-                .maxInputBytes(2 * 1024 * 1024L)
-                .build());
-```
-
-## Security-aware Egress
-
-The Egress side is designed around one rule: **data should be classified before it leaves the application**.
+Satellite models that decision directly:
 
 ```java
 Key<String> userId = Key.string("user.id")
@@ -57,39 +25,48 @@ Key<String> accessToken = Key.string("auth.access_token")
         .category(DataCategory.CREDENTIAL);
 
 SatelliteMap data = SatelliteMap.builder()
-        .put(userId, "user-123")
-        .put(email, "user@example.com",
-                ValueMetadata.of(DataOrigin.DATABASE, TrustLevel.VALIDATED))
-        .put(accessToken, token,
-                ValueMetadata.of(DataOrigin.HTTP_HEADER, TrustLevel.UNTRUSTED))
+        .put(userId, "42")
+        .put(email, "user@example.com")
+        .put(accessToken, token)
         .build();
+
+EgressReport report = new EgressProcessor(EgressPolicyEngine.secureDefaults())
+        .process(data, EgressContext.of(EgressSink.LOG, "request-diagnostics"));
 ```
 
-The default policy is conservative:
+With the secure defaults, public data is allowed, personal/confidential data is redacted in observability sinks, and credentials/restricted data are denied. Applications can add explicit rules before the default rule when a specific use case has a legitimate egress requirement.
 
-- credentials and secrets are denied;
-- `RESTRICTED` values are denied;
-- confidential/privacy-sensitive values are redacted in observability sinks;
-- internal values require explicit policy for network egress;
-- unmatched policy evaluation fails closed.
+## Modules
+
+| Module | Purpose |
+| --- | --- |
+| `satellite-egress-core` | Typed keys, immutable envelopes, schema validation, classification, privacy categories, origin and trust metadata |
+| `satellite-egress-policy` | Fail-closed egress decisions, redaction, HMAC tokenization, violation reports |
+| `satellite-egress-observability` | Policy-enforced SLF4J adapter with log-control-character escaping |
+| `satellite-egress-jackson` | Policy-enforced JSON serialization and JSON Schema 2020-12 export |
+| `satellite-egress-opentelemetry` | Policy-enforced OpenTelemetry span attributes |
+| `satellite-parametermap-egress-bridge` | Strict migration bridge from legacy `ParameterMap` |
+| `satellite-parametermap` | Legacy dynamic map and PMAP/XML compatibility |
+| `satellite-legacy-logging` | Legacy JSON logging compatibility |
+
+The egress modules are optional. Using `satellite-parametermap` alone does not pull in the new policy or observability stack.
+
+## Secure defaults
+
+The default policy is intentionally conservative:
+
+- `CREDENTIAL` and `SECRET`: denied.
+- `RESTRICTED`: denied unless an explicit application rule is evaluated first.
+- `CONFIDENTIAL` and privacy-sensitive categories: redacted for logs/traces/metrics/audit; denied for data sinks by default.
+- `INTERNAL`: allowed for local observability/storage, redacted for generic serialization, denied for network egress.
+- `PUBLIC`: allowed.
+
+Denied values are not included in `EgressReport.getOutput()`, and violation objects contain metadata and reason codes rather than protected values.
+
+## Explicit policy
 
 ```java
-EgressProcessor processor =
-        new EgressProcessor(EgressPolicyEngine.secureDefaults());
-
-EgressReport report = processor.process(
-        data,
-        EgressContext.of(EgressSink.LOG, "request-log"));
-```
-
-The report contains only the policy-approved representation plus machine-readable decisions and privacy violations. Violation objects deliberately do not contain the protected value.
-
-## Explicit egress rules
-
-Applications can add narrow allow/redact/tokenize/deny rules before the secure default rule.
-
-```java
-EgressPolicyEngine policies = EgressPolicyEngine.builder()
+EgressPolicyEngine policy = EgressPolicyEngine.builder()
         .add(EgressRules.forKey(
                 email,
                 EgressSink.NETWORK,
@@ -99,98 +76,96 @@ EgressPolicyEngine policies = EgressPolicyEngine.builder()
         .build();
 ```
 
-For correlation without disclosure, `HmacSha256Tokenizer` provides deterministic pseudonymization with key-name domain separation.
+Rule order matters. Put narrow application rules first and keep `DefaultEgressRule` last as the conservative fallback.
 
-## Safe adapters
+## Pseudonymization
 
-### SLF4J
+For stable pseudonyms, configure `HmacSha256Tokenizer` with a secret of at least 32 bytes and an explicit `TOKENIZE` rule. Tokens are domain-separated by key name. Do not use a plain hash for low-entropy identifiers.
 
-```java
-Slf4jEgressLogger logger = new Slf4jEgressLogger(
-        LoggerFactory.getLogger(MyService.class),
-        processor);
+## Legacy ParameterMap migration
 
-logger.info("Processing request", data, "request-log");
-```
-
-The adapter processes the envelope before logging, omits denied fields, redacts sensitive values and escapes control characters.
-
-### Jackson
+The bridge rejects unclassified source fields by default:
 
 ```java
-JacksonEgressSerializer serializer =
-        new JacksonEgressSerializer(new ObjectMapper(), processor);
-
-String json = serializer.toJson(data, "api-response");
+BridgeResult bridged = ParameterMapEgressBridge.toSatelliteMap(
+        parameterMap,
+        Arrays.asList(userId, email, accessToken),
+        ValueMetadata.of(DataOrigin.HTTP_REQUEST, TrustLevel.UNTRUSTED));
 ```
 
-### OpenTelemetry
+Use `toSatelliteMapLenient` only as an explicit migration choice; it returns the ignored key names so the omission is visible.
+
+## Safe JSON
+
+```java
+JacksonEgressSerializer serializer = new JacksonEgressSerializer(
+        new ObjectMapper(),
+        new EgressProcessor(policy));
+
+String json = serializer.toJson(data, "public-api-response");
+```
+
+Serialization never receives the raw envelope map. It serializes only the policy-approved representation.
+
+## OpenTelemetry
 
 ```java
 OpenTelemetrySpanAdapter adapter =
-        new OpenTelemetrySpanAdapter(processor);
+        new OpenTelemetrySpanAdapter(new EgressProcessor(policy));
 
 adapter.applyToSpan(Span.current(), data, "request-trace");
 ```
 
-Adapters accept `SatelliteMap`; they do not expose a generic raw-map bypass.
-
-## Schema
+## JSON Schema 2020-12
 
 ```java
 SatelliteSchema schema = SatelliteSchema.builder("User")
-        .required(userId)
+        .required(userId.required())
         .optional(email)
         .build();
 
-ValidationResult validation = schema.validate(data);
+JsonNode jsonSchema = new JsonSchemaExporter(new ObjectMapper()).export(schema);
 ```
 
-The Jackson module can export the schema as JSON Schema 2020-12 while retaining Satellite metadata through `x-satellite-*` extension properties.
+The exporter uses JSON Schema 2020-12 and adds `x-satellite-*` extensions for classification, categories and Java type metadata.
 
-## ParameterMap bridge
+## Hardened PMAP/XML compatibility
 
-Migration is explicit. By default, a ParameterMap field without a registered typed `Key<?>` makes conversion fail.
+Legacy PMAP parsing disables DTDs and external entities and now enforces configurable resource budgets:
 
 ```java
-BridgeResult bridged = ParameterMapEgressBridge.toSatelliteMap(
-        parameters,
-        Arrays.asList(userId, email),
-        ValueMetadata.of(DataOrigin.APPLICATION, TrustLevel.VALIDATED));
+PMapParserLimits limits = PMapParserLimits.builder()
+        .maxInputBytes(2 * 1024 * 1024)
+        .maxDepth(32)
+        .maxEntries(5000)
+        .maxCollectionSize(2000)
+        .maxTextLength(256 * 1024)
+        .build();
+
+StreamedPMapParser parser = new StreamedPMapParser(limits);
 ```
 
-A lenient mode exists only as an explicit migration opt-in and reports ignored keys.
-
-## Security posture
-
-The current foundation includes:
-
-- XML XXE/DTD protection;
-- bounded PMAP parsing;
-- fail-closed egress policies;
-- classification collision/downgrade protection;
-- deterministic HMAC-SHA256 pseudonymization;
-- privacy violation reporting without protected values;
-- policy-enforced SLF4J, Jackson and OpenTelemetry adapters;
-- CI on Java 11/17/21;
-- Dependabot;
-- CodeQL;
-- pull-request dependency review;
-- CycloneDX SBOM generation;
-- release workflow that refuses snapshot publication.
-
-See [SECURITY.md](SECURITY.md) and [docs/architecture.md](docs/architecture.md).
+Defaults are intentionally finite. Tune them to the trust boundary and expected payload size.
 
 ## Build
 
 ```bash
-mvn --batch-mode --no-transfer-progress verify
+mvn --batch-mode verify
 ```
 
-## Status
+CI runs the reactor on Java 11, 17 and 21. The build also generates a CycloneDX SBOM. CodeQL and dependency review workflows are included.
 
-The 2.x API is under active development. It is not yet a stable release and breaking changes are still possible before `2.0.0`.
+## Compatibility
+
+- Java baseline: 11.
+- Legacy APIs are preserved in dedicated modules.
+- The 2.x egress API is additive and intentionally separate from the old logging implementation.
+- No concrete logging backend is required by the new observability module.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting and the security model.
 
 ## License
 
-MIT
+MIT.
