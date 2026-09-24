@@ -35,28 +35,40 @@ public final class EgressProcessor {
         for (SatelliteEntry<?> entry : map.entries()) {
             PolicyDecision decision = policyEngine.decide(context, entry);
             EgressAction action = decision.getAction();
+            String reasonCode = decision.getCode();
 
             if (action == EgressAction.ALLOW) {
                 output.put(entry.getKey().getName(), entry.getValue());
             } else if (action == EgressAction.REDACT) {
-                output.put(entry.getKey().getName(), redactor.redact(entry));
+                try {
+                    output.put(entry.getKey().getName(), redactor.redact(entry));
+                } catch (RuntimeException failure) {
+                    action = EgressAction.DENY;
+                    reasonCode = "REDACTION_FAILED";
+                    violations.add(violation(entry, context, reasonCode));
+                }
             } else if (action == EgressAction.TOKENIZE) {
                 if (tokenizer == null) {
                     action = EgressAction.DENY;
-                    violations.add(violation(entry, context, "TOKENIZER_NOT_CONFIGURED"));
+                    reasonCode = "TOKENIZER_NOT_CONFIGURED";
+                    violations.add(violation(entry, context, reasonCode));
                 } else {
-                    output.put(entry.getKey().getName(), tokenizer.tokenize(entry));
+                    try {
+                        output.put(entry.getKey().getName(), tokenizer.tokenize(entry));
+                    } catch (RuntimeException failure) {
+                        action = EgressAction.DENY;
+                        reasonCode = "TOKENIZATION_FAILED";
+                        violations.add(violation(entry, context, reasonCode));
+                    }
                 }
             } else {
-                violations.add(violation(entry, context, decision.getCode()));
+                violations.add(violation(entry, context, reasonCode));
             }
 
             decisions.add(new EgressDecisionRecord(
                     entry.getKey().getName(),
                     action,
-                    action == EgressAction.DENY && decision.getAction() == EgressAction.TOKENIZE
-                            ? "TOKENIZER_NOT_CONFIGURED"
-                            : decision.getCode()));
+                    reasonCode));
         }
 
         return new EgressReport(output, decisions, violations);

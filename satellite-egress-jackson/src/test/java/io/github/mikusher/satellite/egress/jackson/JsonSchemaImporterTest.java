@@ -15,7 +15,7 @@ import static org.junit.Assert.assertTrue;
 public class JsonSchemaImporterTest {
 
     @Test
-    public void roundTripsSatelliteMetadataAndExactSupportedJavaType() {
+    public void roundTripsSatelliteMetadataAndJavaTypes() {
         ObjectMapper mapper = new ObjectMapper();
         Key<Integer> id = Key.integer("id")
                 .classifiedAs(DataClassification.PUBLIC)
@@ -41,13 +41,12 @@ public class JsonSchemaImporterTest {
                 .filter(key -> "id".equals(key.getName()))
                 .findFirst()
                 .orElseThrow(AssertionError::new);
-        assertEquals(Integer.class, importedId.getType());
-
         Key<?> importedEmail = imported.getKnownKeys().stream()
                 .filter(key -> "email".equals(key.getName()))
                 .findFirst()
                 .orElseThrow(AssertionError::new);
 
+        assertEquals(Integer.class, importedId.getType());
         assertEquals(DataClassification.CONFIDENTIAL, importedEmail.getClassification());
         assertTrue(importedEmail.getCategories().contains(DataCategory.PERSONAL_DATA));
     }
@@ -55,23 +54,25 @@ public class JsonSchemaImporterTest {
     @Test(expected = IllegalArgumentException.class)
     public void rejectsAmbiguousUnionTypes() throws Exception {
         JsonNode schema = new ObjectMapper().readTree(
-                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":[\"string\",\"null\"]}}}");
+                "{"type":"object","properties":{"id":{"type":["string","null"]}}}");
 
         new JsonSchemaImporter().importSchema(schema);
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void rejectsSchemaValuedAdditionalProperties() throws Exception {
+    public void rejectsRequiredPropertyMissingFromProperties() throws Exception {
         JsonNode schema = new ObjectMapper().readTree(
-                "{\"type\":\"object\",\"additionalProperties\":{\"type\":\"string\"},\"properties\":{}}");
+                "{"type":"object","required":["id"],"properties":{}}");
 
         new JsonSchemaImporter().importSchema(schema);
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void rejectsRequiredNamesWithoutPropertyDefinition() throws Exception {
+    public void rejectsUnapprovedJavaTypeExtension() throws Exception {
         JsonNode schema = new ObjectMapper().readTree(
-                "{\"type\":\"object\",\"required\":[\"missing\"],\"properties\":{}}");
+                "{"type":"object","properties":{"value":{"
+                        + ""type":"string","
+                        + ""x-satellite-java-type":"java.lang.Runtime"}}}");
 
         new JsonSchemaImporter().importSchema(schema);
     }
@@ -79,7 +80,7 @@ public class JsonSchemaImporterTest {
     @Test
     public void followsJsonSchemaDefaultForAdditionalProperties() throws Exception {
         JsonNode schema = new ObjectMapper().readTree(
-                "{\"title\":\"Open\",\"type\":\"object\",\"properties\":{}}");
+                "{"title":"Open","type":"object","properties":{}}");
 
         assertTrue(new JsonSchemaImporter().importSchema(schema).isAllowUnknownKeys());
     }
