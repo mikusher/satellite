@@ -1,0 +1,64 @@
+package io.github.mikusher.satellite.egress.jackson;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.mikusher.satellite.egress.DataCategory;
+import io.github.mikusher.satellite.egress.DataClassification;
+import io.github.mikusher.satellite.egress.Key;
+import io.github.mikusher.satellite.egress.SatelliteSchema;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+public class JsonSchemaImporterTest {
+
+    @Test
+    public void roundTripsSatelliteMetadata() {
+        ObjectMapper mapper = new ObjectMapper();
+        Key<String> id = Key.string("id")
+                .classifiedAs(DataClassification.PUBLIC)
+                .required();
+        Key<String> email = Key.string("email")
+                .classifiedAs(DataClassification.CONFIDENTIAL)
+                .category(DataCategory.PERSONAL_DATA);
+
+        SatelliteSchema source = SatelliteSchema.builder("User")
+                .required(id)
+                .optional(email)
+                .build();
+
+        JsonNode exported = new JsonSchemaExporter(mapper).export(source);
+        SatelliteSchema imported = new JsonSchemaImporter().importSchema(exported);
+
+        assertEquals("User", imported.getName());
+        assertFalse(imported.isAllowUnknownKeys());
+        assertEquals(2, imported.getKnownKeys().size());
+        assertEquals(1, imported.getRequiredKeys().size());
+
+        Key<?> importedEmail = imported.getKnownKeys().stream()
+                .filter(key -> "email".equals(key.getName()))
+                .findFirst()
+                .orElseThrow(AssertionError::new);
+
+        assertEquals(DataClassification.CONFIDENTIAL, importedEmail.getClassification());
+        assertTrue(importedEmail.getCategories().contains(DataCategory.PERSONAL_DATA));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsAmbiguousUnionTypes() throws Exception {
+        JsonNode schema = new ObjectMapper().readTree(
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":[\"string\",\"null\"]}}}");
+
+        new JsonSchemaImporter().importSchema(schema);
+    }
+
+    @Test
+    public void followsJsonSchemaDefaultForAdditionalProperties() throws Exception {
+        JsonNode schema = new ObjectMapper().readTree(
+                "{\"title\":\"Open\",\"type\":\"object\",\"properties\":{}}");
+
+        assertTrue(new JsonSchemaImporter().importSchema(schema).isAllowUnknownKeys());
+    }
+}
