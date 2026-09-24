@@ -48,12 +48,23 @@ public class StreamedPMapParser {
     private static final WeakReference<String>[] _indentCache = new WeakReference[MAX_INDENT_LEVEL_CACHE];
     private static final IntFunction<String> INDENT_STRING_GENERATOR = i -> "\n"
             + StringUtils.repeat('\t', i);
-    private final XMLInputFactory _xmlInputFactory = XMLInputFactory.newInstance();
+    private final XMLInputFactory _xmlInputFactory = createXmlInputFactory();
     private final XMLOutputFactory _xmlOutputFactory = XMLOutputFactory.newInstance();
     private final DocumentBuilderFactory _docBuilderFactory = DocumentBuilderFactory.newInstance();
     private final SimpleDateFormat _dateFormatter;
     private DocumentBuilder _documentBuilder;
     private Map<String, PMapReadPlugin> _plugins;
+
+    private static XMLInputFactory createXmlInputFactory() {
+
+        XMLInputFactory factory = XMLInputFactory.newInstance();
+        factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
+        factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
+        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> {
+            throw new XMLStreamException("External XML entities are disabled");
+        });
+        return factory;
+    }
 
     private StreamedPMapParser() {
 
