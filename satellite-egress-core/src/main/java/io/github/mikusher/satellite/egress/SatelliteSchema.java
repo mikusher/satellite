@@ -2,6 +2,7 @@ package io.github.mikusher.satellite.egress;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -19,13 +20,29 @@ public final class SatelliteSchema {
                             Set<Key<?>> requiredKeys,
                             boolean allowUnknownKeys) {
         this.name = name;
-        this.knownKeys = new LinkedHashSet<Key<?>>(knownKeys);
-        this.requiredKeys = new LinkedHashSet<Key<?>>(requiredKeys);
+        this.knownKeys = Collections.unmodifiableSet(new LinkedHashSet<Key<?>>(knownKeys));
+        this.requiredKeys = Collections.unmodifiableSet(new LinkedHashSet<Key<?>>(requiredKeys));
         this.allowUnknownKeys = allowUnknownKeys;
     }
 
     public static Builder builder(String name) {
         return new Builder(name);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public Set<Key<?>> getKnownKeys() {
+        return knownKeys;
+    }
+
+    public Set<Key<?>> getRequiredKeys() {
+        return requiredKeys;
+    }
+
+    public boolean isAllowUnknownKeys() {
+        return allowUnknownKeys;
     }
 
     public ValidationResult validate(SatelliteMap map) {
