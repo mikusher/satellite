@@ -8,6 +8,7 @@ import io.github.mikusher.satellite.egress.SatelliteSchema;
 
 import java.math.BigDecimal;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,28 +34,53 @@ public final class JsonSchemaImporter {
         SatelliteSchema.Builder builder = SatelliteSchema.builder(title);
 
         JsonNode additionalProperties = root.get("additionalProperties");
-        builder.allowUnknownKeys(additionalProperties == null
-                || !additionalProperties.isBoolean()
-                || additionalProperties.asBoolean());
+        if (additionalProperties == null || additionalProperties.isNull()) {
+            builder.allowUnknownKeys(true);
+        } else if (additionalProperties.isBoolean()) {
+            builder.allowUnknownKeys(additionalProperties.asBoolean());
+        } else {
+            throw new IllegalArgumentException(
+                    "Schema-valued additionalProperties is not supported by Satellite import");
+        }
 
         Set<String> required = requiredNames(root.get("required"));
 
         JsonNode properties = root.get("properties");
         if (properties == null || properties.isNull()) {
+            if (!required.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "required contains names but properties is missing");
+            }
             return builder.build();
         }
         if (!properties.isObject()) {
             throw new IllegalArgumentException("properties must be a JSON object");
         }
 
-        properties.fields().forEachRemaining(entry -> {
-            Key<?> key = importKey(entry.getKey(), entry.getValue(), required.contains(entry.getKey()));
+        Set<String> propertyNames = new HashSet<String>();
+        Iterator<Map.Entry<String, JsonNode>> fields = properties.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            propertyNames.add(entry.getKey());
+
+            Key<?> key = importKey(
+                    entry.getKey(),
+                    entry.getValue(),
+                    required.contains(entry.getKey()));
+
             if (required.contains(entry.getKey())) {
                 builder.required(key);
             } else {
                 builder.optional(key);
             }
-        });
+        }
+
+        for (String requiredName : required) {
+            if (!propertyNames.contains(requiredName)) {
+                throw new IllegalArgumentException(
+                        "Required property has no definition: " + requiredName);
+            }
+        }
 
         return builder.build();
     }
@@ -70,7 +96,8 @@ public final class JsonSchemaImporter {
                     "Property '" + name + "' must have one supported scalar type");
         }
 
-        Key<?> key = keyForType(name, typeNode.asText());
+        String jsonType = typeNode.asText();
+        Key<?> key = Key.of(name, javaClass(property, jsonType, name));
 
         JsonNode classification = property.get("x-satellite-classification");
         if (classification != null) {
@@ -111,33 +138,101 @@ public final class JsonSchemaImporter {
         return required ? key.required() : key;
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private static Key<?> keyForType(String name, String type) {
-        Class javaType;
+    private static Class<?> javaClass(JsonNode property, String jsonType, String name) {
+        JsonNode javaTypeNode = property.get("x-satellite-java-type");
+        if (javaTypeNode == null || javaTypeNode.isNull()) {
+            return fallbackJavaClass(jsonType, name);
+        }
+        if (!javaTypeNode.isTextual()) {
+            throw new IllegalArgumentException(
+                    "x-satellite-java-type must be a string for '" + name + "'");
+        }
+
+        String javaType = javaTypeNode.asText();
+        Class<?> resolved;
+        switch (javaType) {
+            case "java.lang.String":
+                resolved = String.class;
+                break;
+            case "java.lang.Integer":
+                resolved = Integer.class;
+                break;
+            case "java.lang.Long":
+                resolved = Long.class;
+                break;
+            case "java.lang.Boolean":
+                resolved = Boolean.class;
+                break;
+            case "java.lang.Float":
+                resolved = Float.class;
+                break;
+            case "java.lang.Double":
+                resolved = Double.class;
+                break;
+            case "java.math.BigDecimal":
+                resolved = BigDecimal.class;
+                break;
+            case "java.util.List":
+                resolved = List.class;
+                break;
+            case "java.util.Map":
+                resolved = Map.class;
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        "Unsupported Satellite Java type for '" + name + "': " + javaType);
+        }
+
+        String expectedJsonType = expectedJsonType(resolved);
+        if (!jsonType.equals(expectedJsonType)) {
+            throw new IllegalArgumentException(
+                    "JSON type '" + jsonType + "' conflicts with Satellite Java type '"
+                            + javaType + "' for '" + name + "'");
+        }
+
+        return resolved;
+    }
+
+    private static Class<?> fallbackJavaClass(String type, String name) {
         switch (type) {
             case "string":
-                javaType = String.class;
-                break;
+                return String.class;
             case "integer":
-                javaType = Long.class;
-                break;
+                return Long.class;
             case "number":
-                javaType = BigDecimal.class;
-                break;
+                return BigDecimal.class;
             case "boolean":
-                javaType = Boolean.class;
-                break;
+                return Boolean.class;
             case "array":
-                javaType = List.class;
-                break;
+                return List.class;
             case "object":
-                javaType = Map.class;
-                break;
+                return Map.class;
             default:
                 throw new IllegalArgumentException(
                         "Unsupported JSON Schema type for '" + name + "': " + type);
         }
-        return Key.of(name, javaType);
+    }
+
+    private static String expectedJsonType(Class<?> type) {
+        if (String.class.equals(type)) {
+            return "string";
+        }
+        if (Integer.class.equals(type) || Long.class.equals(type)) {
+            return "integer";
+        }
+        if (Float.class.equals(type) || Double.class.equals(type) || BigDecimal.class.equals(type)) {
+            return "number";
+        }
+        if (Boolean.class.equals(type)) {
+            return "boolean";
+        }
+        if (List.class.equals(type)) {
+            return "array";
+        }
+        if (Map.class.equals(type)) {
+            return "object";
+        }
+        throw new IllegalArgumentException("Unsupported Satellite Java type: " + type.getName());
     }
 
     private static Set<String> requiredNames(JsonNode node) {

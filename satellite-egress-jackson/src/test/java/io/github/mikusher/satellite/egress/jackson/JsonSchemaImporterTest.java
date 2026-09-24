@@ -15,9 +15,9 @@ import static org.junit.Assert.assertTrue;
 public class JsonSchemaImporterTest {
 
     @Test
-    public void roundTripsSatelliteMetadata() {
+    public void roundTripsSatelliteMetadataAndExactSupportedJavaType() {
         ObjectMapper mapper = new ObjectMapper();
-        Key<String> id = Key.string("id")
+        Key<Integer> id = Key.integer("id")
                 .classifiedAs(DataClassification.PUBLIC)
                 .required();
         Key<String> email = Key.string("email")
@@ -37,6 +37,12 @@ public class JsonSchemaImporterTest {
         assertEquals(2, imported.getKnownKeys().size());
         assertEquals(1, imported.getRequiredKeys().size());
 
+        Key<?> importedId = imported.getKnownKeys().stream()
+                .filter(key -> "id".equals(key.getName()))
+                .findFirst()
+                .orElseThrow(AssertionError::new);
+        assertEquals(Integer.class, importedId.getType());
+
         Key<?> importedEmail = imported.getKnownKeys().stream()
                 .filter(key -> "email".equals(key.getName()))
                 .findFirst()
@@ -50,6 +56,22 @@ public class JsonSchemaImporterTest {
     public void rejectsAmbiguousUnionTypes() throws Exception {
         JsonNode schema = new ObjectMapper().readTree(
                 "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":[\"string\",\"null\"]}}}");
+
+        new JsonSchemaImporter().importSchema(schema);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsSchemaValuedAdditionalProperties() throws Exception {
+        JsonNode schema = new ObjectMapper().readTree(
+                "{\"type\":\"object\",\"additionalProperties\":{\"type\":\"string\"},\"properties\":{}}");
+
+        new JsonSchemaImporter().importSchema(schema);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsRequiredNamesWithoutPropertyDefinition() throws Exception {
+        JsonNode schema = new ObjectMapper().readTree(
+                "{\"type\":\"object\",\"required\":[\"missing\"],\"properties\":{}}");
 
         new JsonSchemaImporter().importSchema(schema);
     }
