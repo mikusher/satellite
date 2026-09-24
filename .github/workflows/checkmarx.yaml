@@ -1,17 +1,23 @@
-
 name: Checkmarx AST Scan
+
 on:
   push:
     branches:
       - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+  scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Checkmarx AST CLI Action
-        uses: checkmarx/ast-github-action@main #Github Action version
+        uses: actions/checkout@v4
+
+      - name: Checkmarx AST scan
+        uses: checkmarx/ast-github-action@2.3.42
         with:
           project_name: satellite
           cx_tenant: internal_check
