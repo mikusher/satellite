@@ -9,22 +9,22 @@ public final class PMapParserLimits {
     private static final int DEFAULT_MAX_COLLECTION_SIZE = 10_000;
     private static final int DEFAULT_MAX_TEXT_LENGTH = 1_048_576;
     private static final long DEFAULT_MAX_INPUT_BYTES = 10L * 1024L * 1024L;
+    private static final long DEFAULT_MAX_INPUT_CHARACTERS = 10L * 1024L * 1024L;
 
     private final int maxDepth;
     private final int maxEntries;
     private final int maxCollectionSize;
     private final int maxTextLength;
     private final long maxInputBytes;
+    private final long maxInputCharacters;
 
     private PMapParserLimits(Builder builder) {
         maxDepth = positive(builder.maxDepth, "maxDepth");
         maxEntries = positive(builder.maxEntries, "maxEntries");
         maxCollectionSize = positive(builder.maxCollectionSize, "maxCollectionSize");
         maxTextLength = positive(builder.maxTextLength, "maxTextLength");
-        if (builder.maxInputBytes <= 0) {
-            throw new IllegalArgumentException("maxInputBytes must be positive");
-        }
-        maxInputBytes = builder.maxInputBytes;
+        maxInputBytes = positive(builder.maxInputBytes, "maxInputBytes");
+        maxInputCharacters = positive(builder.maxInputCharacters, "maxInputCharacters");
     }
 
     public static PMapParserLimits defaults() {
@@ -55,7 +55,18 @@ public final class PMapParserLimits {
         return maxInputBytes;
     }
 
+    public long getMaxInputCharacters() {
+        return maxInputCharacters;
+    }
+
     private static int positive(int value, String name) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
+        return value;
+    }
+
+    private static long positive(long value, String name) {
         if (value <= 0) {
             throw new IllegalArgumentException(name + " must be positive");
         }
@@ -68,6 +79,7 @@ public final class PMapParserLimits {
         private int maxCollectionSize = DEFAULT_MAX_COLLECTION_SIZE;
         private int maxTextLength = DEFAULT_MAX_TEXT_LENGTH;
         private long maxInputBytes = DEFAULT_MAX_INPUT_BYTES;
+        private long maxInputCharacters = DEFAULT_MAX_INPUT_CHARACTERS;
 
         public Builder maxDepth(int value) {
             maxDepth = value;
@@ -91,6 +103,11 @@ public final class PMapParserLimits {
 
         public Builder maxInputBytes(long value) {
             maxInputBytes = value;
+            return this;
+        }
+
+        public Builder maxInputCharacters(long value) {
+            maxInputCharacters = value;
             return this;
         }
 

@@ -380,7 +380,7 @@ public class StreamedPMapParser {
     public ParameterMap getMap(Reader reader) throws XMLStreamException {
 
         XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
-                new LimitedReader(reader, _limits.getMaxInputBytes()));
+                new LimitedReader(reader, _limits.getMaxInputCharacters()));
         try {
             // Bypass initial elements till we get to start element
             nextStartElement(r);

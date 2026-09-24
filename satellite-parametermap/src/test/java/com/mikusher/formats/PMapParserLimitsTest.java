@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.ByteArrayInputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 
 public class PMapParserLimitsTest {
@@ -38,6 +39,14 @@ public class PMapParserLimitsTest {
                 PMapParserLimits.builder().maxInputBytes(16).build());
 
         parser.getMap(stream("<m><s n=\"value\">this-is-too-large</s></m>"));
+    }
+
+    @Test(expected = XMLStreamException.class)
+    public void rejectsOversizedReaderInputByCharacterCount() throws Exception {
+        StreamedPMapParser parser = new StreamedPMapParser(
+                PMapParserLimits.builder().maxInputCharacters(16).build());
+
+        parser.getMap(new StringReader("<m><s n=\"value\">this-is-too-large</s></m>"));
     }
 
     private static ByteArrayInputStream stream(String value) {
