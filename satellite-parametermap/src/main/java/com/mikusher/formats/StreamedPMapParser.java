@@ -26,7 +26,10 @@ import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.function.IntFunction;
@@ -40,7 +43,8 @@ public class StreamedPMapParser {
     static final String VERSION = "1.0";
     private static final String TAG_PARAMETER = "parameter";
     private static final String ATT_NAME = "name";
-    private static final TimeZone TIMEZONE_UTC = TimeZone.getTimeZone("UTC");
+    private static final DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
     private static final Charset CHARSET = Charset.forName(ENCODING);
     private static final ThreadLocal<StreamedPMapParser> _threadLocalData = ThreadLocal.withInitial(StreamedPMapParser::new);
     private static final int MAX_INDENT_LEVEL_CACHE = 256;
@@ -48,13 +52,8 @@ public class StreamedPMapParser {
     private static final WeakReference<String>[] _indentCache = new WeakReference[MAX_INDENT_LEVEL_CACHE];
     private static final IntFunction<String> INDENT_STRING_GENERATOR = i -> "\n"
             + StringUtils.repeat('\t', i);
-    private final XMLInputFactory _xmlInputFactory = createXmlInputFactory();
-    private final XMLOutputFactory _xmlOutputFactory = XMLOutputFactory.newInstance();
-    private final DocumentBuilderFactory _docBuilderFactory = DocumentBuilderFactory.newInstance();
     private final PMapParserLimits _limits;
-    private final SimpleDateFormat _dateFormatter;
-    private DocumentBuilder _documentBuilder;
-    private Map<String, PMapReadPlugin> _plugins;
+    private final Map<String, PMapReadPlugin> _plugins;
 
     private static XMLInputFactory createXmlInputFactory() {
 
@@ -85,19 +84,18 @@ public class StreamedPMapParser {
     public StreamedPMapParser(PMapParserLimits limits, PMapReadPlugin[] plugins) {
 
         _limits = Objects.requireNonNull(limits, "limits");
-        _dateFormatter = new SimpleDateFormat("yyyyMMddHHmmss");
-        _dateFormatter.setTimeZone(TIMEZONE_UTC);
-        _dateFormatter.setLenient(false);
 
         if (plugins == null || plugins.length == 0) {
             _plugins = Collections.emptyMap();
         } else {
-            _plugins = Maps.newHashMapWithExpectedSize(plugins.length);
+            Map<String, PMapReadPlugin> configuredPlugins =
+                    Maps.newHashMapWithExpectedSize(plugins.length);
             for (PMapReadPlugin plugin : plugins) {
                 for (String tagName : plugin.getSupportedTags()) {
-                    _plugins.put(tagName, plugin);
+                    configuredPlugins.put(tagName, plugin);
                 }
             }
+            _plugins = Collections.unmodifiableMap(configuredPlugins);
         }
     }
 
@@ -381,7 +379,7 @@ public class StreamedPMapParser {
 
     public ParameterMap getMap(Reader reader) throws XMLStreamException {
 
-        XMLStreamReader r = _xmlInputFactory.createXMLStreamReader(
+        XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
                 new LimitedReader(reader, _limits.getMaxInputBytes()));
         try {
             // Bypass initial elements till we get to start element
@@ -398,7 +396,7 @@ public class StreamedPMapParser {
             return null;
         }
 
-        XMLStreamReader r = _xmlInputFactory.createXMLStreamReader(
+        XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
                 new LimitedInputStream(is, _limits.getMaxInputBytes()));
         try {
             // Bypass initial elements till we get to start element
@@ -559,24 +557,27 @@ public class StreamedPMapParser {
 
     private Date parseDate(String text) throws ParseException {
 
-        try {
-            return _dateFormatter.parse(text);
-        } catch (ParseException e) {
-            //Previous snapshot expireDate were created in the future, with an unparseable date
-            if ("2922789940817071255".equals(text)) {
-                return new Date(Long.MAX_VALUE);
-            }
-            throw e;
+        // Previous snapshots used this sentinel for the maximum representable date.
+        if ("2922789940817071255".equals(text)) {
+            return new Date(Long.MAX_VALUE);
         }
 
+        try {
+            LocalDateTime parsed = LocalDateTime.parse(text, DATE_FORMATTER);
+            return Date.from(parsed.toInstant(ZoneOffset.UTC));
+        } catch (DateTimeParseException e) {
+            ParseException parseException =
+                    new ParseException("Unparseable PMAP date: " + text, e.getErrorIndex());
+            parseException.initCause(e);
+            throw parseException;
+        }
     }
 
     private DocumentFragment parseXML(XMLStreamReader reader) throws XMLStreamException, ParserConfigurationException {
 
-        if (_documentBuilder == null) {
-            _documentBuilder = _docBuilderFactory.newDocumentBuilder();
-        }
-        Document doc = _documentBuilder.newDocument();
+        DocumentBuilder documentBuilder =
+                DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        Document doc = documentBuilder.newDocument();
 
         DocumentFragment df = doc.createDocumentFragment();
         Node node = doc.createElement("dummy");
@@ -616,7 +617,7 @@ public class StreamedPMapParser {
     public void PMAPtoWriter(Map<String, Object> map, SerializationType type, Writer w)
             throws XMLStreamException, IOException {
 
-        final XMLStreamWriter writer = _xmlOutputFactory.createXMLStreamWriter(w);
+        final XMLStreamWriter writer = XMLOutputFactory.newInstance().createXMLStreamWriter(w);
         try {
             writer.writeStartDocument(ENCODING, VERSION);
             writer.writeCharacters("\n");
@@ -661,7 +662,7 @@ public class StreamedPMapParser {
     public ParameterMap InputStreamToPMAP(SerializationType serType, InputStream is)
             throws XMLStreamException, IOException {
 
-        XMLStreamReader reader = _xmlInputFactory.createXMLStreamReader(
+        XMLStreamReader reader = createXmlInputFactory().createXMLStreamReader(
                 new InputStreamReader(new LimitedInputStream(is, _limits.getMaxInputBytes()), CHARSET));
         try {
             final String pname = serType.getVersion() == 1 ? PMapType.MAP.getOldPMapName()
@@ -764,7 +765,10 @@ public class StreamedPMapParser {
                 XMLWriterToList(serType, writer, (Collection<?>) value, level);
                 break;
             case DATE:
-                writeSimpleValue(writer, type, _dateFormatter.format(value));
+                writeSimpleValue(
+                        writer,
+                        type,
+                        DATE_FORMATTER.format(((Date) value).toInstant().atOffset(ZoneOffset.UTC)));
                 break;
             case NULL:
                 break;
@@ -802,7 +806,7 @@ public class StreamedPMapParser {
                 object = Boolean.parseBoolean(value);
                 break;
             case DATE:
-                object = _dateFormatter.parse(value);
+                object = parseDate(value);
                 break;
             case DECIMAL:
                 object = new BigDecimal(value);
