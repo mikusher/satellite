@@ -11,9 +11,29 @@ permissions:
 jobs:
   dependency-review:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check dependency graph availability
+        id: dependency-graph
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          status="$(
+            curl --silent                  --output /dev/null                  --write-out "%{http_code}"                  -H "Accept: application/vnd.github+json"                  -H "Authorization: Bearer ${GH_TOKEN}"                  -H "X-GitHub-Api-Version: 2022-11-28"                  "https://api.github.com/repos/${REPOSITORY}/dependency-graph/sbom"
+          )"
+
+          if [ "${status}" = "200" ]; then
+            echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "::warning::GitHub Dependency Graph is unavailable (HTTP ${status}); dependency review was skipped."
+          fi
+
       - name: Review dependency changes
+        if: steps.dependency-graph.outputs.enabled == 'true'
         uses: actions/dependency-review-action@v4
