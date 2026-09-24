@@ -42,6 +42,31 @@ public class PolicyRuleTest {
     }
 
     @Test
+    public void fullKeyMatcherCannotAuthorizeDifferentClassificationWithSameName() {
+        Key<String> confidential = Key.string("shared.name")
+                .classifiedAs(DataClassification.CONFIDENTIAL);
+        Key<String> restricted = Key.string("shared.name")
+                .classifiedAs(DataClassification.RESTRICTED)
+                .category(DataCategory.SECRET);
+
+        EgressPolicyEngine engine = EgressPolicyEngine.builder()
+                .add(PolicyRule.builder()
+                        .key(confidential)
+                        .sink(EgressSink.NETWORK)
+                        .purpose("approved")
+                        .action(EgressAction.ALLOW)
+                        .reasonCode("CONFIDENTIAL_EXPORT")
+                        .build())
+                .add(new DefaultEgressRule())
+                .build();
+
+        assertEquals(EgressAction.DENY, engine.decide(
+                EgressContext.of(EgressSink.NETWORK, "approved"),
+                SatelliteMap.builder().put(restricted, "secret").build().entry(restricted).get())
+                .getAction());
+    }
+
+    @Test
     public void ruleCanMatchRuntimeOriginAndTrust() {
         Key<String> publicInput = Key.string("search.term")
                 .classifiedAs(DataClassification.PUBLIC);
@@ -65,6 +90,24 @@ public class PolicyRuleTest {
                         .build()
                         .entry(publicInput).get())
                 .getAction());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void allowRuleWithoutPurposeIsRejected() {
+        PolicyRule.builder()
+                .classification(DataClassification.PUBLIC)
+                .sink(EgressSink.NETWORK)
+                .action(EgressAction.ALLOW)
+                .reasonCode("TOO_BROAD")
+                .build();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void matcherlessRuleIsRejected() {
+        PolicyRule.builder()
+                .action(EgressAction.DENY)
+                .reasonCode("MATCHES_EVERYTHING_BY_ACCIDENT")
+                .build();
     }
 
     @Test(expected = IllegalArgumentException.class)

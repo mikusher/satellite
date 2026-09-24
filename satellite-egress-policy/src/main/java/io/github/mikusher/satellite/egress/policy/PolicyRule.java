@@ -12,8 +12,12 @@ import java.util.Optional;
 
 /**
  * Declarative policy rule. All configured matchers must match before the action is returned.
+ *
+ * <p>Positive egress decisions (ALLOW and TOKENIZE) must be scoped to both a sink
+ * and a purpose. This prevents accidentally creating a global allow rule.</p>
  */
 public final class PolicyRule implements EgressRule {
+    private final Key<?> key;
     private final String keyName;
     private final DataClassification classification;
     private final DataCategory category;
@@ -26,6 +30,7 @@ public final class PolicyRule implements EgressRule {
     private final String message;
 
     private PolicyRule(Builder builder) {
+        this.key = builder.key;
         this.keyName = builder.keyName;
         this.classification = builder.classification;
         this.category = builder.category;
@@ -36,6 +41,15 @@ public final class PolicyRule implements EgressRule {
         this.action = Objects.requireNonNull(builder.action, "action");
         this.reasonCode = requireText(builder.reasonCode, "reasonCode");
         this.message = builder.message == null ? "Explicit policy rule" : builder.message;
+
+        if (!hasMatcher()) {
+            throw new IllegalArgumentException("PolicyRule must contain at least one matcher");
+        }
+        if ((action == EgressAction.ALLOW || action == EgressAction.TOKENIZE)
+                && (sink == null || purpose == null)) {
+            throw new IllegalArgumentException(
+                    action + " rules must be scoped to both sink and purpose");
+        }
     }
 
     public static Builder builder() {
@@ -44,6 +58,9 @@ public final class PolicyRule implements EgressRule {
 
     @Override
     public Optional<PolicyDecision> evaluate(EgressContext context, SatelliteEntry<?> entry) {
+        if (key != null && !key.equals(entry.getKey())) {
+            return Optional.empty();
+        }
         if (keyName != null && !keyName.equals(entry.getKey().getName())) {
             return Optional.empty();
         }
@@ -69,6 +86,17 @@ public final class PolicyRule implements EgressRule {
         return Optional.of(decision(action, reasonCode, message));
     }
 
+    private boolean hasMatcher() {
+        return key != null
+                || keyName != null
+                || classification != null
+                || category != null
+                || origin != null
+                || trustLevel != null
+                || sink != null
+                || purpose != null;
+    }
+
     private static PolicyDecision decision(EgressAction action, String code, String message) {
         switch (action) {
             case ALLOW:
@@ -91,6 +119,7 @@ public final class PolicyRule implements EgressRule {
     }
 
     public static final class Builder {
+        private Key<?> key;
         private String keyName;
         private DataClassification classification;
         private DataCategory category;
@@ -102,13 +131,15 @@ public final class PolicyRule implements EgressRule {
         private String reasonCode;
         private String message;
 
-        public Builder key(Key<?> key) {
-            this.keyName = Objects.requireNonNull(key, "key").getName();
+        public Builder key(Key<?> value) {
+            this.key = Objects.requireNonNull(value, "key");
+            this.keyName = null;
             return this;
         }
 
         public Builder keyName(String value) {
             this.keyName = requireText(value, "keyName");
+            this.key = null;
             return this;
         }
 

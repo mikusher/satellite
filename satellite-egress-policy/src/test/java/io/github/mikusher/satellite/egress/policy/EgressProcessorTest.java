@@ -39,21 +39,41 @@ public class EgressProcessorTest {
     }
 
     @Test
-    public void explicitRuleCanAuthorizeSpecificNetworkEgress() {
+    public void explicitRuleCanAuthorizeOnlySpecificPurpose() {
         Key<String> email = Key.string("email")
                 .classifiedAs(DataClassification.CONFIDENTIAL)
                 .category(DataCategory.PERSONAL_DATA);
 
         EgressPolicyEngine engine = EgressPolicyEngine.builder()
-                .add(EgressRules.forKey(email, EgressSink.NETWORK, EgressAction.ALLOW, "CONSENTED_EMAIL_EXPORT"))
+                .add(EgressRules.forKeyAndPurpose(
+                        email,
+                        EgressSink.NETWORK,
+                        "account-provider",
+                        EgressAction.ALLOW,
+                        "CONSENTED_EMAIL_EXPORT"))
                 .add(new DefaultEgressRule())
                 .build();
 
-        EgressReport report = new EgressProcessor(engine)
+        EgressReport allowed = new EgressProcessor(engine)
                 .process(SatelliteMap.builder().put(email, "user@example.com").build(),
                         EgressContext.of(EgressSink.NETWORK, "account-provider"));
 
-        assertEquals("user@example.com", report.getOutput().get("email"));
-        assertFalse(report.hasViolations());
+        EgressReport denied = new EgressProcessor(engine)
+                .process(SatelliteMap.builder().put(email, "user@example.com").build(),
+                        EgressContext.of(EgressSink.NETWORK, "analytics"));
+
+        assertEquals("user@example.com", allowed.getOutput().get("email"));
+        assertFalse(allowed.hasViolations());
+        assertFalse(denied.getOutput().containsKey("email"));
+        assertTrue(denied.hasViolations());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void broadConvenienceAllowRuleIsRejected() {
+        EgressRules.forKey(
+                Key.string("email"),
+                EgressSink.NETWORK,
+                EgressAction.ALLOW,
+                "TOO_BROAD");
     }
 }
