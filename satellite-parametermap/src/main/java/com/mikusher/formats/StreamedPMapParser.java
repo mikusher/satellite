@@ -607,9 +607,10 @@ public class StreamedPMapParser {
     public void PMAPtoOutputStream(Map<String, Object> map, SerializationType type, OutputStream os)
             throws XMLStreamException, IOException {
 
-        try (OutputStreamWriter writer = new OutputStreamWriter(os, CHARSET)) {
-            PMAPtoWriter(map, type, writer);
-        }
+        Objects.requireNonNull(os, "os");
+        OutputStreamWriter writer = new OutputStreamWriter(new NonClosingOutputStream(os), CHARSET);
+        PMAPtoWriter(map, type, writer);
+        writer.flush();
     }
 
     public void PMAPtoWriter(Map<String, Object> map, SerializationType type, Writer w)
@@ -907,6 +908,10 @@ public class StreamedPMapParser {
 
             PMapType pMapType = PMapType.lookup(xmlStreamReader.getName().toString());
 
+            if (pMapType == null) {
+                throw new XMLStreamException("Invalid type - " + xmlStreamReader.getName());
+            }
+
             if (isLeaf(xmlStreamReader, pMapType)) {
                 Entry<String, Object> entry = parseLeaf(xmlStreamReader, pMapType);
                 result.put(entry.getKey(), entry.getValue());
@@ -942,7 +947,7 @@ public class StreamedPMapParser {
 
         if (xmlStreamReaderArray.isStartElement()) {
             PMapType pMapType = PMapType.lookup(xmlStreamReaderArray.getLocalName());
-            if (pMapType.equals(PMapType.ARRAY) && indexStart > -1 && indexEnd >= 0 && indexStart <= indexEnd) {
+            if (PMapType.ARRAY.equals(pMapType) && indexStart > -1 && indexEnd >= 0 && indexStart <= indexEnd) {
 
                 xmlStreamReaderArray = getElementByArray(xmlStreamReaderArray, indexStart);
                 int i = indexStart;
@@ -1011,6 +1016,17 @@ public class StreamedPMapParser {
             if (value != null && value.length() > limits.getMaxTextLength()) {
                 throw new XMLStreamException("PMAP text length limit exceeded");
             }
+        }
+    }
+
+    private static final class NonClosingOutputStream extends FilterOutputStream {
+        private NonClosingOutputStream(OutputStream output) {
+            super(Objects.requireNonNull(output, "output"));
+        }
+
+        @Override
+        public void close() throws IOException {
+            flush();
         }
     }
 
