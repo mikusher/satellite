@@ -59,6 +59,7 @@ public final class SatelliteMap {
 
     public static final class Builder {
         private final Map<Key<?>, SatelliteEntry<?>> entries = new LinkedHashMap<Key<?>, SatelliteEntry<?>>();
+        private final Map<String, Key<?>> keysByName = new LinkedHashMap<String, Key<?>>();
 
         public <T> Builder put(Key<T> key, T value) {
             return put(key, value, ValueMetadata.unknown());
@@ -67,7 +68,15 @@ public final class SatelliteMap {
         public <T> Builder put(Key<T> key, T value, ValueMetadata metadata) {
             Objects.requireNonNull(key, "key");
             Objects.requireNonNull(metadata, "metadata");
+
+            Key<?> existing = keysByName.get(key.getName());
+            if (existing != null && !existing.equals(key)) {
+                throw new IllegalArgumentException(
+                        "Conflicting key definition for external name '" + key.getName() + "'");
+            }
+
             T safeValue = key.cast(value);
+            keysByName.put(key.getName(), key);
             entries.put(key, new SatelliteEntry<T>(key, safeValue, metadata));
             return this;
         }

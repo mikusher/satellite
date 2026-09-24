@@ -2,7 +2,9 @@ package io.github.mikusher.satellite.egress;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -62,6 +64,7 @@ public final class SatelliteSchema {
         private final String name;
         private final Set<Key<?>> knownKeys = new LinkedHashSet<Key<?>>();
         private final Set<Key<?>> requiredKeys = new LinkedHashSet<Key<?>>();
+        private final Map<String, Key<?>> keysByName = new LinkedHashMap<String, Key<?>>();
         private boolean allowUnknownKeys;
 
         private Builder(String name) {
@@ -72,14 +75,13 @@ public final class SatelliteSchema {
         }
 
         public Builder required(Key<?> key) {
-            Objects.requireNonNull(key, "key");
-            knownKeys.add(key);
+            register(key);
             requiredKeys.add(key);
             return this;
         }
 
         public Builder optional(Key<?> key) {
-            knownKeys.add(Objects.requireNonNull(key, "key"));
+            register(key);
             return this;
         }
 
@@ -90,6 +92,17 @@ public final class SatelliteSchema {
 
         public SatelliteSchema build() {
             return new SatelliteSchema(name, knownKeys, requiredKeys, allowUnknownKeys);
+        }
+
+        private void register(Key<?> key) {
+            Objects.requireNonNull(key, "key");
+            Key<?> existing = keysByName.get(key.getName());
+            if (existing != null && !existing.equals(key)) {
+                throw new IllegalArgumentException(
+                        "Conflicting key definition for schema name '" + key.getName() + "'");
+            }
+            keysByName.put(key.getName(), key);
+            knownKeys.add(key);
         }
     }
 }

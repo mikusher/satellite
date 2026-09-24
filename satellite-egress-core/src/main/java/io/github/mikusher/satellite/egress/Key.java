@@ -20,9 +20,7 @@ public final class Key<T> {
                 DataClassification classification,
                 Set<DataCategory> categories,
                 boolean required) {
-        if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("name must not be blank");
-        }
+        validateName(name);
         this.name = name;
         this.type = Objects.requireNonNull(type, "type");
         this.classification = Objects.requireNonNull(classification, "classification");
@@ -127,6 +125,17 @@ public final class Key<T> {
                 + ", classification=" + classification
                 + ", categories=" + categories
                 + ", required=" + required + '}';
+    }
+
+    private static void validateName(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("name must not be blank");
+        }
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isISOControl(value.charAt(i))) {
+                throw new IllegalArgumentException("name must not contain control characters");
+            }
+        }
     }
 
     private static Set<DataCategory> immutableCategories(Set<DataCategory> input) {

@@ -30,4 +30,17 @@ public class SatelliteMapTest {
         Key raw = Key.integer("age");
         SatelliteMap.builder().put(raw, "wrong-type");
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void builderRejectsClassificationDowngradeByDuplicateExternalName() {
+        Key<String> restricted = Key.string("token")
+                .classifiedAs(DataClassification.RESTRICTED)
+                .category(DataCategory.CREDENTIAL);
+        Key<String> publicAlias = Key.string("token")
+                .classifiedAs(DataClassification.PUBLIC);
+
+        SatelliteMap.builder()
+                .put(restricted, "secret")
+                .put(publicAlias, "downgraded");
+    }
 }

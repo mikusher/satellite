@@ -26,4 +26,9 @@ public class KeyTest {
         Key<Integer> age = Key.integer("age");
         age.cast("not-an-integer");
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsControlCharactersInExternalName() {
+        Key.string("unsafe\nkey");
+    }
 }
