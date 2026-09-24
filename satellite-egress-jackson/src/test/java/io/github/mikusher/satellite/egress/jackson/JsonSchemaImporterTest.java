@@ -2,6 +2,8 @@ package io.github.mikusher.satellite.egress.jackson;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.mikusher.satellite.egress.DataCategory;
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.Key;
@@ -52,35 +54,49 @@ public class JsonSchemaImporterTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void rejectsAmbiguousUnionTypes() throws Exception {
-        JsonNode schema = new ObjectMapper().readTree(
-                "{"type":"object","properties":{"id":{"type":["string","null"]}}}");
+    public void rejectsAmbiguousUnionTypes() {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode schema = mapper.createObjectNode();
+        schema.put("type", "object");
+
+        ObjectNode id = schema.putObject("properties").putObject("id");
+        ArrayNode types = id.putArray("type");
+        types.add("string");
+        types.add("null");
 
         new JsonSchemaImporter().importSchema(schema);
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void rejectsRequiredPropertyMissingFromProperties() throws Exception {
-        JsonNode schema = new ObjectMapper().readTree(
-                "{"type":"object","required":["id"],"properties":{}}");
+    public void rejectsRequiredPropertyMissingFromProperties() {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode schema = mapper.createObjectNode();
+        schema.put("type", "object");
+        schema.putArray("required").add("id");
+        schema.putObject("properties");
 
         new JsonSchemaImporter().importSchema(schema);
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void rejectsUnapprovedJavaTypeExtension() throws Exception {
-        JsonNode schema = new ObjectMapper().readTree(
-                "{"type":"object","properties":{"value":{"
-                        + ""type":"string","
-                        + ""x-satellite-java-type":"java.lang.Runtime"}}}");
+    public void rejectsUnapprovedJavaTypeExtension() {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode schema = mapper.createObjectNode();
+        schema.put("type", "object");
+        ObjectNode value = schema.putObject("properties").putObject("value");
+        value.put("type", "string");
+        value.put("x-satellite-java-type", "java.lang.Runtime");
 
         new JsonSchemaImporter().importSchema(schema);
     }
 
     @Test
-    public void followsJsonSchemaDefaultForAdditionalProperties() throws Exception {
-        JsonNode schema = new ObjectMapper().readTree(
-                "{"title":"Open","type":"object","properties":{}}");
+    public void followsJsonSchemaDefaultForAdditionalProperties() {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode schema = mapper.createObjectNode();
+        schema.put("title", "Open");
+        schema.put("type", "object");
+        schema.putObject("properties");
 
         assertTrue(new JsonSchemaImporter().importSchema(schema).isAllowUnknownKeys());
     }
