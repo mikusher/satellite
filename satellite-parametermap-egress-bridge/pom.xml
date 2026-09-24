@@ -8,6 +8,7 @@
   <dependencies>
     <dependency><groupId>io.github.mikusher</groupId><artifactId>satellite-parametermap</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>io.github.mikusher</groupId><artifactId>satellite-egress-core</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.github.mikusher</groupId><artifactId>satellite-egress-policy</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>junit</groupId><artifactId>junit</artifactId><version>${junit.version}</version><scope>test</scope></dependency>
   </dependencies>
 </project>
