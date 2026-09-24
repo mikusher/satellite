@@ -16,7 +16,12 @@ public class TokenizationFailureTest {
                 .classifiedAs(DataClassification.CONFIDENTIAL);
 
         EgressPolicyEngine engine = EgressPolicyEngine.builder()
-                .add(EgressRules.forKey(id, EgressSink.STORAGE, EgressAction.TOKENIZE, "PSEUDONYMIZE"))
+                .add(EgressRules.forKeyAndPurpose(
+                        id,
+                        EgressSink.STORAGE,
+                        "analytics",
+                        EgressAction.TOKENIZE,
+                        "PSEUDONYMIZE"))
                 .add(new DefaultEgressRule())
                 .build();
 
