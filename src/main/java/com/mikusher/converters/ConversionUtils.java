@@ -18,12 +18,12 @@ public class ConversionUtils {
 
     public static final boolean isFinite(double value) {
 
-        return value != Double.NaN && value != Double.NEGATIVE_INFINITY && value != Double.POSITIVE_INFINITY;
+        return Double.isFinite(value);
     }
 
     public static final boolean isFinite(float value) {
 
-        return value != Float.NaN && value != Float.NEGATIVE_INFINITY && value != Float.POSITIVE_INFINITY;
+        return Float.isFinite(value);
     }
 
     public static boolean hasDecimalPart(double value) {

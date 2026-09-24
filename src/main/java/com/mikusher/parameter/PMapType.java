@@ -2,6 +2,7 @@ package com.mikusher.parameter;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public enum PMapType {
     STRING(CharSequence.class, ParameterInfo.STRING, "s", "Str", "string"),
@@ -17,10 +18,10 @@ public enum PMapType {
     NULL(null, ParameterInfo.NULL, "n", "null");
 
     private static final Map<String, PMapType> _mapping;
-    private static final Map<Class<?>, PMapType> _classMapping = new IdentityHashMap<>();
+    private static final Map<Class<?>, PMapType> _classMapping = new ConcurrentHashMap<>();
 
     static {
-        Map<String, PMapType> mapping = new IdentityHashMap<>();
+        Map<String, PMapType> mapping = new HashMap<>();
         for (PMapType type : values()) {
             for (String typeS : type.getTypeAlias()) {
                 mapping.put(typeS, type);
@@ -28,7 +29,9 @@ public enum PMapType {
             mapping.put(type.getShortName(), type);
             mapping.put(type.getOldPMapName(), type);
 
-            _classMapping.put(type.getClass(), type);
+            if (type.getJavaClass() != null) {
+                _classMapping.put(type.getJavaClass(), type);
+            }
         }
 
         _mapping = Collections.unmodifiableMap(mapping);
@@ -44,13 +47,13 @@ public enum PMapType {
 
         final String[] values = new String[strValues.length];
         for (int i = 0; i < strValues.length; i++) {
-            values[i] = strValues[i].intern();
+            values[i] = strValues[i];
         }
 
         _typeNames = values;
         _javaClass = javaClass;
-        _oldPMapName = pmapType.intern();
-        _shortName = shortName.intern();
+        _oldPMapName = pmapType;
+        _shortName = shortName;
     }
 
     public static PMapType parameterTypeToPMapType(ParameterTypes parameterType) {
@@ -99,7 +102,11 @@ public enum PMapType {
 
     public static PMapType lookup(String typeName) {
 
-        return _mapping.get(typeName.intern());
+        if (typeName == null) {
+            return null;
+        }
+
+        return _mapping.get(typeName);
     }
 
     public static PMapType lookup(Object value) {

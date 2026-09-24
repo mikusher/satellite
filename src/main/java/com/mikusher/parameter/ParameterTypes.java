@@ -12,9 +12,9 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public enum ParameterTypes {
@@ -38,12 +38,14 @@ public enum ParameterTypes {
             Float, Double, Map, Array,
             Date, Decimal, Null};
     private static final ParameterTypes[] ALL_VALUES = ParameterTypes.values();
-    private static final IdentityHashMap<Class<?>, ParameterTypes> _classMapping = new IdentityHashMap<>();
+    private static final ConcurrentHashMap<Class<?>, ParameterTypes> _classMapping = new ConcurrentHashMap<>();
 
     static {
         // Cache existing mappings for improved performance
         for (ParameterTypes pt : MATCHING_VALUES) {
-            _classMapping.put(pt.getExpectedClass(), pt);
+            if (pt.getExpectedClass() != null) {
+                _classMapping.put(pt.getExpectedClass(), pt);
+            }
 
             for (Class<?> clazz : pt.getOtherClasses()) {
                 _classMapping.put(clazz, pt);
@@ -98,7 +100,7 @@ public enum ParameterTypes {
             for (Class<?> clazz : pt.getOtherClasses()) {
                 if (clazz.isAssignableFrom(type)) {
                     // Add to cache
-                    putClassMapping(clazz, pt);
+                    putClassMapping(type, pt);
                     return pt;
                 }
             }
@@ -110,10 +112,7 @@ public enum ParameterTypes {
     private static void putClassMapping(Class<?> clazz, ParameterTypes type) {
 
         // Use the class object to synchronize mapping validation and verification
-        ParameterTypes oldType;
-        synchronized (_classMapping) {
-            oldType = _classMapping.putIfAbsent(clazz, type);
-        }
+        ParameterTypes oldType = _classMapping.putIfAbsent(clazz, type);
 
         if (oldType != null && oldType != type) {
             throw new CoreError("Class ''{0}'' as more than one matching type: {1} and {2}",
@@ -239,6 +238,10 @@ public enum ParameterTypes {
     }
 
     public boolean isValid(Object source) throws CoreException {
+
+        if (this == Null) {
+            return source == null;
+        }
 
         return _expectedClass.isInstance(source);
     }
