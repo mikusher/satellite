@@ -8,10 +8,7 @@ public final class EgressContext {
 
     private EgressContext(EgressSink sink, String purpose) {
         this.sink = Objects.requireNonNull(sink, "sink");
-        if (purpose == null || purpose.trim().isEmpty()) {
-            throw new IllegalArgumentException("purpose must not be blank");
-        }
-        this.purpose = purpose;
+        this.purpose = validatePurpose(purpose);
     }
 
     public static EgressContext of(EgressSink sink, String purpose) {
@@ -24,5 +21,17 @@ public final class EgressContext {
 
     public String getPurpose() {
         return purpose;
+    }
+
+    private static String validatePurpose(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("purpose must not be blank");
+        }
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isISOControl(value.charAt(i))) {
+                throw new IllegalArgumentException("purpose must not contain control characters");
+            }
+        }
+        return value;
     }
 }

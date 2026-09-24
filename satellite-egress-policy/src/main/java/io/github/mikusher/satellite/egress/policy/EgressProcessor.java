@@ -68,6 +68,7 @@ public final class EgressProcessor {
         return new PrivacyViolation(
                 entry.getKey().getName(),
                 context.getSink(),
+                context.getPurpose(),
                 reasonCode,
                 entry.getKey().getClassification(),
                 entry.getKey().getCategories(),

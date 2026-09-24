@@ -12,6 +12,7 @@ import java.util.Set;
 public final class PrivacyViolation {
     private final String keyName;
     private final EgressSink sink;
+    private final String purpose;
     private final String reasonCode;
     private final DataClassification classification;
     private final Set<DataCategory> categories;
@@ -20,6 +21,7 @@ public final class PrivacyViolation {
 
     PrivacyViolation(String keyName,
                      EgressSink sink,
+                     String purpose,
                      String reasonCode,
                      DataClassification classification,
                      Set<DataCategory> categories,
@@ -27,6 +29,7 @@ public final class PrivacyViolation {
                      TrustLevel trustLevel) {
         this.keyName = keyName;
         this.sink = sink;
+        this.purpose = purpose;
         this.reasonCode = reasonCode;
         this.classification = classification;
         this.categories = categories.isEmpty()
@@ -42,6 +45,10 @@ public final class PrivacyViolation {
 
     public EgressSink getSink() {
         return sink;
+    }
+
+    public String getPurpose() {
+        return purpose;
     }
 
     public String getReasonCode() {
@@ -67,7 +74,8 @@ public final class PrivacyViolation {
     @Override
     public String toString() {
         return "PrivacyViolation{key='" + keyName + "', sink=" + sink
-                + ", reasonCode='" + reasonCode + "', classification=" + classification
+                + ", purpose='" + purpose + "', reasonCode='" + reasonCode
+                + "', classification=" + classification
                 + ", categories=" + categories + ", origin=" + origin
                 + ", trustLevel=" + trustLevel + '}';
     }
