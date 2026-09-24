@@ -1,159 +1,110 @@
 # Satellite modular architecture
 
-Satellite is a single repository containing independent Maven modules.
+Satellite is a single repository containing independently usable Maven modules.
 
-The design deliberately separates the generic ParameterMap library from the security/privacy Egress framework.
-
-## Modules
-
-### satellite-parametermap
-
-Owns the existing ParameterMap data model, converters, PMAP/XML format and related utilities.
-
-It has **no dependency on Egress**.
-
-### satellite-legacy-logging
-
-Contains the pre-v2 JSON/SLF4J logger for compatibility. Keeping it separate prevents the generic ParameterMap artifact from imposing a logging backend or logging API.
-
-### satellite-egress-core
-
-Dependency-light security/privacy model:
-
-- `Key<T>`
-- `SatelliteMap`
-- `SatelliteEntry<T>`
-- `DataClassification`
-- `DataCategory`
-- `DataOrigin`
-- `TrustLevel`
-- `ValueMetadata`
-- `SatelliteSchema`
-
-It has **no dependency on ParameterMap**.
-
-### satellite-egress-policy
-
-Policy enforcement:
-
-- `EgressPolicyEngine`
-- `PolicyRule`
-- `DefaultEgressRule`
-- `ALLOW / REDACT / TOKENIZE / DENY`
-- `EgressProcessor`
-- `PrivacyViolation`
-- `HmacSha256Tokenizer`
-
-Depends only on Egress Core.
-
-### satellite-egress-observability
-
-SLF4J adapter with mandatory policy processing and log-control-character escaping.
-
-### satellite-egress-jackson
-
-Policy-enforced Jackson serialization plus JSON Schema Draft 2020-12 export.
-
-### satellite-egress-opentelemetry
-
-Policy-enforced OpenTelemetry span attributes.
-
-### satellite-parametermap-egress-bridge
-
-Optional integration between ParameterMap and Egress.
-
-This is the only module allowed to depend on both product lines.
-
-## Dependency direction
+## Dependency boundaries
 
 ```text
 satellite-parametermap                 satellite-egress-core
         │                                      │
-        │                                      ▼
         │                              satellite-egress-policy
-        │                               /       |        \
-        │                              /        |         \
-        │                             ▼         ▼          ▼
-        │                       observability  jackson  opentelemetry
+        │                                      │
+        │                    ┌─────────────────┼──────────────────┐
+        │                    ▼                 ▼                  ▼
+        │          egress-observability  egress-jackson  egress-opentelemetry
         │
         └──────────────┐
                        ▼
           satellite-parametermap-egress-bridge
                        ▲
                        │
-              satellite-egress-core
-              satellite-egress-policy
+               satellite-egress-core
+               satellite-egress-policy
 ```
 
-The module reactor itself enforces most of this boundary: code cannot import another product line unless its Maven module declares that dependency.
+`satellite-legacy-logging` is intentionally isolated from both product lines.
 
-## Security model
+## Rules
 
-Static semantics belong to `Key<T>`:
+1. `satellite-parametermap` must never depend on an Egress module.
+2. `satellite-egress-core` must never depend on ParameterMap.
+3. Egress policy/adapters may depend only on Egress modules plus their external integration API.
+4. Only `satellite-parametermap-egress-bridge` may depend on both ParameterMap and Egress.
+5. Legacy logging remains isolated and is not a dependency of the new Egress adapters.
 
-- classification;
-- categories;
-- Java type;
-- required/optional schema semantics.
+## ParameterMap responsibility
 
-Runtime semantics belong to each value:
+ParameterMap remains a general dynamic-data utility:
 
-- origin;
-- trust level.
+- typed conversion and retrieval;
+- `ParameterInfoMap` constraints;
+- nested maps/lists;
+- PMAP/XML interoperability;
+- JDBC/conversion utilities.
 
-This is intentional. The same logical key may receive values from different origins or validation states across requests.
+Parser security is part of this module, including DTD/external-entity blocking and configurable resource limits.
 
-## Egress flow
+## Egress responsibility
+
+The Egress framework controls application data at output boundaries.
+
+Static key metadata:
+
+- `DataClassification`;
+- `DataCategory`;
+- type information;
+- required/optional schema metadata.
+
+Runtime value metadata:
+
+- `DataOrigin`;
+- `TrustLevel`.
+
+This separation matters because one logical key may receive values from different origins and with different trust levels.
+
+## Policy flow
 
 ```text
-typed value
-   │
-   ▼
 SatelliteMap
-   │
-   ▼
-EgressContext (sink + purpose)
-   │
-   ▼
+    │
+    ▼
 EgressPolicyEngine
-   │
-   ├── ALLOW ───────► original representation
-   ├── REDACT ──────► safe marker/replacement
-   ├── TOKENIZE ────► deterministic pseudonym
-   └── DENY ────────► omitted + PrivacyViolation
-   │
-   ▼
-sink-specific adapter
+    │
+    ├── ALLOW ──────► original value
+    ├── REDACT ─────► redacted representation
+    ├── TOKENIZE ───► deterministic pseudonym
+    └── DENY ───────► no output + privacy violation
+    │
+    ▼
+EgressReport
+    │
+    ▼
+approved sink adapter
 ```
 
-Adapters do not receive a raw-map escape hatch.
+The engine is fail-closed. If no rule matches, egress is denied.
 
-## ParameterMap bridge
+## Security invariants
 
-The bridge treats legacy data as unclassified until the application supplies explicit `Key<?>` definitions.
+- secrets/credentials are denied by the default policy;
+- restricted data requires explicit application policy;
+- adapters do not receive or expose raw maps;
+- violations contain metadata and reason codes, never the protected value;
+- duplicate external key names with conflicting security metadata are rejected;
+- HMAC tokenization uses key-name domain separation;
+- output serialization/logging happens only after policy evaluation;
+- ParameterMap bridge rejects unclassified source fields by default.
 
-Strict conversion rejects unknown ParameterMap fields. A separately named lenient migration method exists only for deliberate staged adoption.
+## Current adapters
 
-## Parser boundary
+- SLF4J;
+- Jackson;
+- OpenTelemetry spans.
 
-PMAP/XML parsing:
+Jackson additionally exports `SatelliteSchema` as JSON Schema 2020-12.
 
-- disables DTD processing;
-- disables external entities;
-- rejects external XML resolution;
-- can bound input size, nesting depth, total entries, per-collection size and text length;
-- preserves caller ownership of output streams.
+## Compatibility
 
-## Build and supply chain
+The foundation remains Java 11 source-compatible and is verified on Java 11, 17 and 21.
 
-- Java 11 source/target.
-- CI matrix: Java 11, 17, 21.
-- Dependabot for Maven and GitHub Actions.
-- CodeQL `security-extended`.
-- pull-request dependency review.
-- aggregate CycloneDX SBOM during `verify`.
-- release workflow will not publish snapshot versions.
-
-## Future boundaries
-
-Features such as additional adapters or JSON Schema import should remain optional modules. The Egress Core should remain small and must not accumulate framework dependencies.
+The repository version is currently `2.0.0-SNAPSHOT`. Publication is gated to release/manual workflows and snapshots are rejected by the release job.
