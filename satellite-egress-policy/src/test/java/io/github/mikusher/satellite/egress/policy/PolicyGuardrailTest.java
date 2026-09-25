@@ -3,7 +3,7 @@ package io.github.mikusher.satellite.egress.policy;
 import io.github.mikusher.satellite.egress.DataCategory;
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.Key;
-import io.github.mikusher.satellite.egress.SatelliteMap;
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -29,7 +29,7 @@ public class PolicyGuardrailTest {
 
         PolicyDecision decision = engine.decide(
                 EgressContext.of(EgressSink.LOG, "diagnostics"),
-                SatelliteMap.builder().put(email, "user@example.com").build().entry(email).get());
+                EgressEnvelope.builder().put(email, "user@example.com").build().entry(email).get());
 
         assertEquals(EgressAction.DENY, decision.getAction());
         assertEquals("OBSERVABILITY_RAW_SENSITIVE_DENIED", decision.getCode());
@@ -53,7 +53,7 @@ public class PolicyGuardrailTest {
 
         assertEquals(EgressAction.TOKENIZE, engine.decide(
                 EgressContext.of(EgressSink.TRACE, "correlation"),
-                SatelliteMap.builder().put(accountId, "123").build().entry(accountId).get())
+                EgressEnvelope.builder().put(accountId, "123").build().entry(accountId).get())
                 .getAction());
     }
 }

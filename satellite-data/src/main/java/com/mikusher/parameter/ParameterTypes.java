@@ -25,7 +25,7 @@ public enum ParameterTypes {
     Boolean(Boolean.class, true, new BooleanConverter()),
     Float(Float.class, true, new FloatConverter()),
     Double(Double.class, true, new DoubleConverter()),
-    Map(ParameterMap.class, false, new ParameterMapConverter(), new Class<?>[]{java.util.Map.class, DataMap.class}),
+    Map(SatelliteData.class, false, new SatelliteDataConverter(), new Class<?>[]{java.util.Map.class, DataMap.class}),
     Array(List.class, false, new ListConverter(), new Class<?>[]{Object[].class}),
     Date(java.util.Date.class, true, new DateConverter()),
     Decimal(BigDecimal.class, true, new DecimalConverter()),

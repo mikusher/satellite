@@ -4,7 +4,7 @@ import io.github.mikusher.satellite.egress.DataCategory;
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.DataOrigin;
 import io.github.mikusher.satellite.egress.Key;
-import io.github.mikusher.satellite.egress.SatelliteMap;
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import io.github.mikusher.satellite.egress.TrustLevel;
 import io.github.mikusher.satellite.egress.ValueMetadata;
 import org.junit.Test;
@@ -32,12 +32,12 @@ public class PolicyRuleTest {
 
         assertEquals(EgressAction.ALLOW, engine.decide(
                 EgressContext.of(EgressSink.NETWORK, "account-provider"),
-                SatelliteMap.builder().put(email, "user@example.com").build().entry(email).get())
+                EgressEnvelope.builder().put(email, "user@example.com").build().entry(email).get())
                 .getAction());
 
         assertEquals(EgressAction.DENY, engine.decide(
                 EgressContext.of(EgressSink.NETWORK, "analytics"),
-                SatelliteMap.builder().put(email, "user@example.com").build().entry(email).get())
+                EgressEnvelope.builder().put(email, "user@example.com").build().entry(email).get())
                 .getAction());
     }
 
@@ -62,7 +62,7 @@ public class PolicyRuleTest {
 
         assertEquals(EgressAction.DENY, engine.decide(
                 EgressContext.of(EgressSink.NETWORK, "approved"),
-                SatelliteMap.builder().put(restricted, "secret").build().entry(restricted).get())
+                EgressEnvelope.builder().put(restricted, "secret").build().entry(restricted).get())
                 .getAction());
     }
 
@@ -84,7 +84,7 @@ public class PolicyRuleTest {
 
         assertEquals(EgressAction.REDACT, engine.decide(
                 EgressContext.of(EgressSink.LOG, "diagnostics"),
-                SatelliteMap.builder()
+                EgressEnvelope.builder()
                         .put(publicInput, "attacker-input",
                                 ValueMetadata.of(DataOrigin.USER_INPUT, TrustLevel.UNTRUSTED))
                         .build()

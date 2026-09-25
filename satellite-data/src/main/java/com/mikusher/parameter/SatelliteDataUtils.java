@@ -9,16 +9,16 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class ParameterMapUtils {
+public class SatelliteDataUtils {
 
 
     private static final String PARAM_UUID = "UUID";
 
-    private ParameterMapUtils() {
+    private SatelliteDataUtils() {
 
     }
 
-    public static List<UUID> getUUIDList(String key, ParameterMap map) {
+    public static List<UUID> getUUIDList(String key, SatelliteData map) {
 
         Stream<UUID> stream = getUUIDStream(key, map);
         if (stream == null) {
@@ -29,7 +29,7 @@ public class ParameterMapUtils {
     }
 
 
-    private static Stream<UUID> getUUIDStream(String key, ParameterMap map) {
+    private static Stream<UUID> getUUIDStream(String key, SatelliteData map) {
 
         if (key == null || map == null) {
             return null;
@@ -43,14 +43,14 @@ public class ParameterMapUtils {
         return toUUIDStream(((List<?>) value).stream());
     }
 
-    public static List<UUID> getUUIDListFromObjectList(String key, ParameterMap map) {
+    public static List<UUID> getUUIDListFromObjectList(String key, SatelliteData map) {
 
         Stream<UUID> stream = getUUIDStreamFromObjectList(key, map);
         return stream == null ? null : stream.collect(Collectors.toList());
     }
 
 
-    private static Stream<UUID> getUUIDStreamFromObjectList(String key, ParameterMap map) {
+    private static Stream<UUID> getUUIDStreamFromObjectList(String key, SatelliteData map) {
 
         if (key == null || map == null) {
             return null;
@@ -62,7 +62,7 @@ public class ParameterMapUtils {
         }
 
         @SuppressWarnings("unchecked")
-        List<ParameterMap> objLst = (List<ParameterMap>) value;
+        List<SatelliteData> objLst = (List<SatelliteData>) value;
         return toUUIDStream(objLst.stream().map(pm -> {
             try {
                 return pm.getString(PARAM_UUID);
@@ -104,7 +104,7 @@ public class ParameterMapUtils {
 
     private static Stream<UUID> toUUIDStream(Stream<?> stream) {
 
-        return stream.map(ParameterMapUtils::toUUID).filter(Objects::nonNull);
+        return stream.map(SatelliteDataUtils::toUUID).filter(Objects::nonNull);
     }
 
 
@@ -121,13 +121,13 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static Set<UUID> getUUIDSet(String key, ParameterMap map) {
+    public static Set<UUID> getUUIDSet(String key, SatelliteData map) {
 
         return getUUIDSet(key, map, null);
     }
 
 
-    public static Set<UUID> getUUIDSet(String key, ParameterMap map, Set<UUID> defaultValue) {
+    public static Set<UUID> getUUIDSet(String key, SatelliteData map, Set<UUID> defaultValue) {
 
         Stream<UUID> stream = getUUIDStream(key, map);
         if (stream == null) {
@@ -151,7 +151,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static Set<UUID> getUUIDSetFromUUIDListOrObjectList(String key, ParameterMap map) {
+    public static Set<UUID> getUUIDSetFromUUIDListOrObjectList(String key, SatelliteData map) {
 
         Object value = map.get(key);
         if (value == null || !(value instanceof List)) {
@@ -186,7 +186,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static Set<UUID> getUUIDSetFromObjectList(String key, ParameterMap map) {
+    public static Set<UUID> getUUIDSetFromObjectList(String key, SatelliteData map) {
 
         Stream<UUID> stream = getUUIDStreamFromObjectList(key, map);
         return stream == null ? null : stream.collect(Collectors.toSet());
@@ -205,7 +205,7 @@ public class ParameterMapUtils {
      * @param map      Map where to set the specified key.
      * @return
      */
-    public static void setUUIDList(String key, Collection<UUID> uuidList, ParameterMap map) {
+    public static void setUUIDList(String key, Collection<UUID> uuidList, SatelliteData map) {
 
         if (key == null || map == null || uuidList == null) {
             return;
@@ -228,7 +228,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static UUID getUUID(String key, ParameterMap map) {
+    public static UUID getUUID(String key, SatelliteData map) {
 
         return getUUID(key, map, null);
     }
@@ -247,7 +247,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static UUID getUUID(String key, ParameterMap map, UUID defaultUUID) {
+    public static UUID getUUID(String key, SatelliteData map, UUID defaultUUID) {
 
         if (key == null || map == null) {
             return defaultUUID;
@@ -269,7 +269,7 @@ public class ParameterMapUtils {
      * @param map  Map where to set the specified key.
      * @return
      */
-    public static void setUUID(String key, UUID uuid, ParameterMap map) {
+    public static void setUUID(String key, UUID uuid, SatelliteData map) {
 
         if (key == null || map == null || uuid == null) {
             return;
@@ -305,21 +305,21 @@ public class ParameterMapUtils {
 
 
     /**
-     * Retrieve a ParameterMap list from a given map entry.
+     * Retrieve a SatelliteData list from a given map entry.
      * <p>
      * If <code>key</code> or <code>map</code> are <code>null</code>, then <code>null</code> is returned.
      * <p>
      * If the <code>map</code> has no <code>key</code>, or the value for the <code>key</code> is <code>null</code> or not a List, then <code>null</code> is returned.
      * <p>
-     * Invalid ParameterMap objects or <code>null</code> values are ignored.
+     * Invalid SatelliteData objects or <code>null</code> values are ignored.
      *
      * @param key Name of the map key that contains the List.
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static List<ParameterMap> getMapList(String key, ParameterMap map) {
+    public static List<SatelliteData> getMapList(String key, SatelliteData map) {
 
-        return getValueList(ParameterMap.class, key, map);
+        return getValueList(SatelliteData.class, key, map);
     }
 
 
@@ -336,7 +336,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static List<String> getStringList(String key, ParameterMap map) {
+    public static List<String> getStringList(String key, SatelliteData map) {
 
         return getValueList(String.class, key, map);
     }
@@ -357,7 +357,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static boolean isStringList(String key, ParameterMap map) {
+    public static boolean isStringList(String key, SatelliteData map) {
 
         if (key == null || map == null) {
             return false;
@@ -383,7 +383,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static Boolean getBoolean(String key, ParameterMap map) {
+    public static Boolean getBoolean(String key, SatelliteData map) {
 
         return getBoolean(key, map, null);
     }
@@ -400,7 +400,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static Boolean getBoolean(String key, ParameterMap map, Boolean defaultValue) {
+    public static Boolean getBoolean(String key, SatelliteData map, Boolean defaultValue) {
 
         return getValue(ParameterTypes.Boolean, key, map, defaultValue);
     }
@@ -416,7 +416,7 @@ public class ParameterMapUtils {
      * @param map   Map where to set the specified key.
      * @return
      */
-    public static void setBoolean(String key, Boolean value, ParameterMap map) {
+    public static void setBoolean(String key, Boolean value, SatelliteData map) {
 
         setValue(key, value, map);
     }
@@ -432,7 +432,7 @@ public class ParameterMapUtils {
      * @param map   Map where to set the specified key.
      * @return
      */
-    public static void setBoolean(Boolean value, ParameterMap map, String... keys) {
+    public static void setBoolean(Boolean value, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -453,7 +453,7 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static String getString(String key, ParameterMap map) {
+    public static String getString(String key, SatelliteData map) {
 
         return getString(key, map, null);
     }
@@ -470,37 +470,37 @@ public class ParameterMapUtils {
      * @param map Map where to look for the specified key.
      * @return
      */
-    public static String getString(String key, ParameterMap map, String defaultValue) {
+    public static String getString(String key, SatelliteData map, String defaultValue) {
 
         return getValue(ParameterTypes.String, key, map, defaultValue);
     }
 
 
-    public static void setString(String key, String value, ParameterMap map) {
+    public static void setString(String key, String value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static Integer getInt(String key, ParameterMap map) {
+    public static Integer getInt(String key, SatelliteData map) {
 
         return getInt(key, map, null);
     }
 
 
-    public static Integer getInt(String key, ParameterMap map, Integer defaultValue) {
+    public static Integer getInt(String key, SatelliteData map, Integer defaultValue) {
 
         return getValue(ParameterTypes.Integer, key, map, defaultValue);
     }
 
 
-    public static void setInt(String key, Integer value, ParameterMap map) {
+    public static void setInt(String key, Integer value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static void setInt(String key, Function<Integer, Integer> setter, ParameterMap map) {
+    public static void setInt(String key, Function<Integer, Integer> setter, SatelliteData map) {
 
         if (setter != null) {
             Integer value = getInt(key, map);
@@ -512,7 +512,7 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setLong(String key, Function<Long, Long> setter, ParameterMap map) {
+    public static void setLong(String key, Function<Long, Long> setter, SatelliteData map) {
 
         if (setter != null) {
             Long value = getLong(key, map);
@@ -525,121 +525,121 @@ public class ParameterMapUtils {
     }
 
 
-    public static Long getLong(String key, ParameterMap map) {
+    public static Long getLong(String key, SatelliteData map) {
 
         return getLong(key, map, null);
     }
 
 
-    public static Long getLong(String key, ParameterMap map, Long defaultValue) {
+    public static Long getLong(String key, SatelliteData map, Long defaultValue) {
 
         return getValue(ParameterTypes.Long, key, map, defaultValue);
     }
 
 
-    public static void setLong(String key, Long value, ParameterMap map) {
+    public static void setLong(String key, Long value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static Float getFloat(String key, ParameterMap map) {
+    public static Float getFloat(String key, SatelliteData map) {
 
         return getFloat(key, map, null);
     }
 
 
-    public static Float getFloat(String key, ParameterMap map, Float defaultValue) {
+    public static Float getFloat(String key, SatelliteData map, Float defaultValue) {
 
         return getValue(ParameterTypes.Float, key, map, defaultValue);
     }
 
 
-    public static void setFloat(String key, Float value, ParameterMap map) {
+    public static void setFloat(String key, Float value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static Double getDouble(String key, ParameterMap map) {
+    public static Double getDouble(String key, SatelliteData map) {
 
         return getDouble(key, map, null);
     }
 
 
-    public static Double getDouble(String key, ParameterMap map, Double defaultValue) {
+    public static Double getDouble(String key, SatelliteData map, Double defaultValue) {
 
         return getValue(ParameterTypes.Double, key, map, defaultValue);
     }
 
 
-    public static void setDouble(String key, Double value, ParameterMap map) {
+    public static void setDouble(String key, Double value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static BigDecimal getDecimal(String key, ParameterMap map) {
+    public static BigDecimal getDecimal(String key, SatelliteData map) {
 
         return getDecimal(key, map, null);
     }
 
 
-    public static BigDecimal getDecimal(String key, ParameterMap map, BigDecimal defaultValue) {
+    public static BigDecimal getDecimal(String key, SatelliteData map, BigDecimal defaultValue) {
 
         return getValue(ParameterTypes.Decimal, key, map, defaultValue);
     }
 
 
-    public static void setDecimal(String key, BigDecimal value, ParameterMap map) {
+    public static void setDecimal(String key, BigDecimal value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static Date getDate(String key, ParameterMap map) {
+    public static Date getDate(String key, SatelliteData map) {
 
         return getDate(key, map, null);
     }
 
 
-    public static Date getDate(String key, ParameterMap map, Date defaultValue) {
+    public static Date getDate(String key, SatelliteData map, Date defaultValue) {
 
         return getValue(ParameterTypes.Date, key, map, defaultValue);
     }
 
 
-    public static void setDate(String key, Date value, ParameterMap map) {
+    public static void setDate(String key, Date value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static ParameterMap getMap(String key, ParameterMap map) {
+    public static SatelliteData getMap(String key, SatelliteData map) {
 
         return getMap(key, map, null);
     }
 
 
-    public static ParameterMap getMap(String key, ParameterMap map, ParameterMap defaultValue) {
+    public static SatelliteData getMap(String key, SatelliteData map, SatelliteData defaultValue) {
 
         return getValue(ParameterTypes.Map, key, map, defaultValue);
     }
 
 
-    public static void setMap(String key, ParameterMap value, ParameterMap map) {
+    public static void setMap(String key, SatelliteData value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static List<?> getArray(String key, ParameterMap map) {
+    public static List<?> getArray(String key, SatelliteData map) {
 
         return getArray(key, map, null);
     }
 
 
-    public static List<?> getArray(String key, ParameterMap map, List<?> defaultValue) {
+    public static List<?> getArray(String key, SatelliteData map, List<?> defaultValue) {
 
         Stream<?> value = getValueStream(key, map);
         if (value == null) {
@@ -650,25 +650,25 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setArray(String key, List<?> value, ParameterMap map) {
+    public static void setArray(String key, List<?> value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static Object getObject(String key, ParameterMap map) {
+    public static Object getObject(String key, SatelliteData map) {
 
         return getObject(key, map, null);
     }
 
 
-    public static Object getObject(String key, ParameterMap map, Object defaultValue) {
+    public static Object getObject(String key, SatelliteData map, Object defaultValue) {
 
         return getValue(ParameterTypes.Unknown, key, map, defaultValue);
     }
 
 
-    public static Object getObject(ParameterMap map, Object defaultValue, String... keys) {
+    public static Object getObject(SatelliteData map, Object defaultValue, String... keys) {
 
         if (keys.length == 0) {
             return defaultValue;
@@ -678,21 +678,21 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setObject(String key, Object value, ParameterMap map) {
+    public static void setObject(String key, Object value, SatelliteData map) {
 
         setValue(key, value, map);
     }
 
 
-    public static ParameterMap extend(ParameterMap... maps) {
+    public static SatelliteData extend(SatelliteData... maps) {
 
         if (maps == null) {
             return null;
         }
 
-        ParameterMap map = new ParameterMap();
+        SatelliteData map = new SatelliteData();
 
-        for (ParameterMap m : maps) {
+        for (SatelliteData m : maps) {
             if (m != null) {
                 map = extend(map, m);
             }
@@ -702,7 +702,7 @@ public class ParameterMapUtils {
     }
 
 
-    private static ParameterMap extend(ParameterMap map1, ParameterMap map2) {
+    private static SatelliteData extend(SatelliteData map1, SatelliteData map2) {
 
         boolean map1IsInvalid = !isValidMap(map1);
         boolean map2IsInvalid = !isValidMap(map2);
@@ -719,7 +719,7 @@ public class ParameterMapUtils {
             return map1.clone();
         }
 
-        ParameterMap map = map1.clone();
+        SatelliteData map = map1.clone();
 
         for (Map.Entry<String, Object> entry : map2.entrySet()) {
 
@@ -727,14 +727,14 @@ public class ParameterMapUtils {
             Object value = entry.getValue();
             Object existingValue = map.get(key);
 
-            if (value instanceof ParameterMap) {
+            if (value instanceof SatelliteData) {
 
-                // Keep extending the values if we found a ParameterMap.
+                // Keep extending the values if we found a SatelliteData.
 
-                ParameterMap existingMap = (existingValue instanceof ParameterMap ? (ParameterMap) existingValue
+                SatelliteData existingMap = (existingValue instanceof SatelliteData ? (SatelliteData) existingValue
                         : null);
 
-                map.put(key, extend(existingMap, (ParameterMap) value));
+                map.put(key, extend(existingMap, (SatelliteData) value));
 
             } else if (value instanceof List) {
 
@@ -787,11 +787,11 @@ public class ParameterMapUtils {
 
                 /*
                  * Second list reached its end so, we use the value from the first list.
-                 * We also make sure that we extend the value if it's a ParameterMap or List.
+                 * We also make sure that we extend the value if it's a SatelliteData or List.
                  */
 
-                if (value1 instanceof ParameterMap) {
-                    list.add(extend(null, (ParameterMap) value1));
+                if (value1 instanceof SatelliteData) {
+                    list.add(extend(null, (SatelliteData) value1));
                 } else if (value1 instanceof List) {
                     list.add(extendList(null, (List<?>) value1));
                 } else {
@@ -801,13 +801,13 @@ public class ParameterMapUtils {
                 continue;
             }
 
-            if (value2 instanceof ParameterMap) {
+            if (value2 instanceof SatelliteData) {
 
-                // Keep extending the values if we found a ParameterMap.
+                // Keep extending the values if we found a SatelliteData.
 
-                ParameterMap value1Map = (value1 instanceof ParameterMap ? (ParameterMap) value1 : null);
+                SatelliteData value1Map = (value1 instanceof SatelliteData ? (SatelliteData) value1 : null);
 
-                list.add(extend(value1Map, (ParameterMap) value2));
+                list.add(extend(value1Map, (SatelliteData) value2));
 
             } else if (value2 instanceof List) {
 
@@ -827,19 +827,19 @@ public class ParameterMapUtils {
     }
 
 
-    private static boolean isValidMap(ParameterMap map) {
+    private static boolean isValidMap(SatelliteData map) {
 
-        return (map != null && map instanceof ParameterMap);
+        return (map != null && map instanceof SatelliteData);
     }
 
 
-    public static boolean containsKeyValue(ParameterMap map, String key, Object value) {
+    public static boolean containsKeyValue(SatelliteData map, String key, Object value) {
 
         return value != null && map.containsKey(key) && value.equals(getObject(key, map));
     }
 
 
-    public static boolean containsMap(ParameterMap map, ParameterMap map1) {
+    public static boolean containsMap(SatelliteData map, SatelliteData map1) {
 
         for (String key1 : map1.keySet()) {
             Object value1 = getObject(key1, map1);
@@ -853,7 +853,7 @@ public class ParameterMapUtils {
 
 
     @SuppressWarnings("unchecked")
-    private static <T> T getValue(ParameterTypes type, String key, ParameterMap map, T defaultValue) {
+    private static <T> T getValue(ParameterTypes type, String key, SatelliteData map, T defaultValue) {
 
         if (type == null || key == null || map == null) {
             return defaultValue;
@@ -879,7 +879,7 @@ public class ParameterMapUtils {
     }
 
 
-    private static <T> List<T> getValueList(Class<T> cls, String key, ParameterMap map) {
+    private static <T> List<T> getValueList(Class<T> cls, String key, SatelliteData map) {
 
         Stream<?> stream = getValueStream(key, map);
         if (stream == null) {
@@ -890,7 +890,7 @@ public class ParameterMapUtils {
     }
 
 
-    private static Stream<?> getValueStream(String key, ParameterMap map) {
+    private static Stream<?> getValueStream(String key, SatelliteData map) {
 
         if (key == null || map == null) {
             return null;
@@ -905,7 +905,7 @@ public class ParameterMapUtils {
     }
 
 
-    private static void setValue(String key, Object value, ParameterMap map) {
+    private static void setValue(String key, Object value, SatelliteData map) {
 
         if (key == null || map == null || value == null) {
             return;
@@ -925,11 +925,11 @@ public class ParameterMapUtils {
      * <code>null</code> entries in the list are ignored.
      *
      * @param key     Name of the map key to be set.
-     * @param mapList ParameterMap list to set in the specified map.
+     * @param mapList SatelliteData list to set in the specified map.
      * @param map     Map where to set the specified key.
      * @return
      */
-    public static void setMapList(String key, List<ParameterMap> mapList, ParameterMap map) {
+    public static void setMapList(String key, List<SatelliteData> mapList, SatelliteData map) {
 
         if (key == null || map == null || mapList == null) {
             return;
@@ -949,7 +949,7 @@ public class ParameterMapUtils {
      * @param map        Map where to set the specified key.
      * @return
      */
-    public static void setStringList(String key, List<String> stringList, ParameterMap map) {
+    public static void setStringList(String key, List<String> stringList, SatelliteData map) {
 
         if (key == null || map == null || stringList == null) {
             return;
@@ -969,7 +969,7 @@ public class ParameterMapUtils {
      * @param map    Map where to set the specified key.
      * @return
      */
-    public static void setStringList(String key, Function<List<String>, List<String>> setter, ParameterMap map) {
+    public static void setStringList(String key, Function<List<String>, List<String>> setter, SatelliteData map) {
 
         List<String> value = getStringList(key, map);
         List<String> finalValue = setter.apply(nvl(value, ArrayList::new));
@@ -987,11 +987,11 @@ public class ParameterMapUtils {
      * @param map    Map where to set the specified key.
      * @return
      */
-    public static void setMapList(String key, Function<List<ParameterMap>, List<ParameterMap>> setter,
-                                  ParameterMap map) {
+    public static void setMapList(String key, Function<List<SatelliteData>, List<SatelliteData>> setter,
+                                  SatelliteData map) {
 
-        List<ParameterMap> value = getMapList(key, map);
-        List<ParameterMap> finalValue = setter.apply(nvl(value, ArrayList::new));
+        List<SatelliteData> value = getMapList(key, map);
+        List<SatelliteData> finalValue = setter.apply(nvl(value, ArrayList::new));
         setMapList(key, finalValue, map);
     }
 
@@ -1006,7 +1006,7 @@ public class ParameterMapUtils {
      * @param map    Map where to set the specified key.
      * @return
      */
-    public static void setStringList(Function<List<String>, List<String>> setter, ParameterMap map, String... keys) {
+    public static void setStringList(Function<List<String>, List<String>> setter, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -1016,7 +1016,7 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setInt(Function<Integer, Integer> setter, ParameterMap map, String... keys) {
+    public static void setInt(Function<Integer, Integer> setter, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -1027,7 +1027,7 @@ public class ParameterMapUtils {
 
 
 
-    public static void setLong(Function<Long, Long> setter, ParameterMap map, String... keys) {
+    public static void setLong(Function<Long, Long> setter, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -1037,7 +1037,7 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setStringList(List<String> stringList, ParameterMap map, String... keys) {
+    public static void setStringList(List<String> stringList, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -1047,7 +1047,7 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setMap(ParameterMap mapValue, ParameterMap map, String... keys) {
+    public static void setMap(SatelliteData mapValue, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -1057,7 +1057,7 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setString(String stringValue, ParameterMap map, String... keys) {
+    public static void setString(String stringValue, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -1067,7 +1067,7 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setLong(Long longValue, ParameterMap map, String... keys) {
+    public static void setLong(Long longValue, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -1077,7 +1077,7 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setMapList(Function<List<ParameterMap>, List<ParameterMap>> setter, ParameterMap map,
+    public static void setMapList(Function<List<SatelliteData>, List<SatelliteData>> setter, SatelliteData map,
                                   String... keys) {
 
         if (keys.length == 0) {
@@ -1087,7 +1087,7 @@ public class ParameterMapUtils {
         setMapList(keys[keys.length - 1], setter, navigateMap(map, keys, 0, keys.length - 1));
     }
 
-    public static void setUUIDList(Function<List<UUID>, List<UUID>> setter, ParameterMap map, String... keys) {
+    public static void setUUIDList(Function<List<UUID>, List<UUID>> setter, SatelliteData map, String... keys) {
 
         if (keys.length == 0) {
             return;
@@ -1097,7 +1097,7 @@ public class ParameterMapUtils {
     }
 
 
-    public static void setUUIDList(String key, Function<List<UUID>, List<UUID>> setter, ParameterMap map) {
+    public static void setUUIDList(String key, Function<List<UUID>, List<UUID>> setter, SatelliteData map) {
 
         List<UUID> value = getUUIDList(key, map);
         List<UUID> finalValue = setter.apply(nvl(value, ArrayList::new));
@@ -1105,9 +1105,9 @@ public class ParameterMapUtils {
     }
 
 
-    private static ParameterMap navigateMap(ParameterMap map, String[] keys, int start, int end) {
+    private static SatelliteData navigateMap(SatelliteData map, String[] keys, int start, int end) {
 
-        ParameterMap pointer = map;
+        SatelliteData pointer = map;
         for (int i = start; i < end && pointer != null; i++) {
             pointer = getMap(keys[i], pointer);
         }

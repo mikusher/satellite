@@ -73,14 +73,6 @@ public final class SatelliteSchema {
         return new ValidationResult(errors);
     }
 
-    /**
-     * @deprecated Use {@link #validate(EgressEnvelope)}.
-     */
-    @Deprecated
-    public ValidationResult validate(SatelliteMap map) {
-        return validate(Objects.requireNonNull(map, "map").asEgressEnvelope());
-    }
-
     private static <T> boolean hasNonNullValue(EgressEnvelope envelope, Key<T> key) {
         return envelope.entry(key).map(entry -> entry.getValue() != null).orElse(false);
     }

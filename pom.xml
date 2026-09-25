@@ -14,7 +14,6 @@
 
   <modules>
     <module>satellite-data</module>
-    <module>satellite-parametermap</module>
     <module>satellite-legacy-logging</module>
     <module>satellite-egress-core</module>
     <module>satellite-egress-policy</module>
@@ -22,7 +21,6 @@
     <module>satellite-egress-jackson</module>
     <module>satellite-egress-opentelemetry</module>
     <module>satellite-data-egress-bridge</module>
-    <module>satellite-parametermap-egress-bridge</module>
   </modules>
 
   <properties>

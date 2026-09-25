@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.mikusher.satellite.egress.DataCategory;
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.Key;
-import io.github.mikusher.satellite.egress.SatelliteMap;
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import io.github.mikusher.satellite.egress.policy.EgressPolicyEngine;
 import io.github.mikusher.satellite.egress.policy.EgressProcessor;
 import org.junit.Test;
@@ -24,7 +24,7 @@ public class JacksonEgressSerializerTest {
                 .classifiedAs(DataClassification.RESTRICTED)
                 .category(DataCategory.CREDENTIAL);
 
-        SatelliteMap map = SatelliteMap.builder()
+        EgressEnvelope map = EgressEnvelope.builder()
                 .put(publicValue, "ok")
                 .put(internalValue, "internal-only")
                 .put(secret, "never-serialize")

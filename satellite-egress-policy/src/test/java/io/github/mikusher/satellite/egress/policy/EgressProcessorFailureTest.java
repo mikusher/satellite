@@ -2,7 +2,7 @@ package io.github.mikusher.satellite.egress.policy;
 
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.Key;
-import io.github.mikusher.satellite.egress.SatelliteMap;
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -36,7 +36,7 @@ public class EgressProcessorFailureTest {
                 new ConstantRedactor(),
                 brokenTokenizer)
                 .process(
-                        SatelliteMap.builder().put(id, "secret-value").build(),
+                        EgressEnvelope.builder().put(id, "secret-value").build(),
                         EgressContext.of(EgressSink.STORAGE, "analytics"));
 
         assertFalse(report.getOutput().containsKey("customer.id"));
@@ -59,7 +59,7 @@ public class EgressProcessorFailureTest {
                 brokenRedactor,
                 null)
                 .process(
-                        SatelliteMap.builder().put(email, "user@example.com").build(),
+                        EgressEnvelope.builder().put(email, "user@example.com").build(),
                         EgressContext.of(EgressSink.LOG, "diagnostics"));
 
         assertFalse(report.getOutput().containsKey("email"));

@@ -1,7 +1,6 @@
 package io.github.mikusher.satellite.egress.opentelemetry;
 
 import io.github.mikusher.satellite.egress.EgressEnvelope;
-import io.github.mikusher.satellite.egress.SatelliteMap;
 import io.github.mikusher.satellite.egress.policy.EgressContext;
 import io.github.mikusher.satellite.egress.policy.EgressProcessor;
 import io.github.mikusher.satellite.egress.policy.EgressReport;
@@ -43,15 +42,6 @@ public final class OpenTelemetrySpanAdapter {
         return result.getReport();
     }
 
-    @Deprecated
-    public OpenTelemetryEgressResult prepareAttributes(SatelliteMap map, String purpose) {
-        return prepareAttributes(map.asEgressEnvelope(), purpose);
-    }
-
-    @Deprecated
-    public EgressReport applyToSpan(Span span, SatelliteMap map, String purpose) {
-        return applyToSpan(span, map.asEgressEnvelope(), purpose);
-    }
 
     private static void put(AttributesBuilder builder, String key, Object value) {
         if (value == null) {

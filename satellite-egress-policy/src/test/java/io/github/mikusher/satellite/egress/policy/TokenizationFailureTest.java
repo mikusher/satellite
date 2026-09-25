@@ -2,7 +2,7 @@ package io.github.mikusher.satellite.egress.policy;
 
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.Key;
-import io.github.mikusher.satellite.egress.SatelliteMap;
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
@@ -26,7 +26,7 @@ public class TokenizationFailureTest {
                 .build();
 
         EgressReport report = new EgressProcessor(engine)
-                .process(SatelliteMap.builder().put(id, "123").build(),
+                .process(EgressEnvelope.builder().put(id, "123").build(),
                         EgressContext.of(EgressSink.STORAGE, "analytics"));
 
         assertFalse(report.getOutput().containsKey("customer.id"));

@@ -15,22 +15,6 @@ satellite-data                         satellite-egress-core
       +------> satellite-data-egress-bridge <----+
 ```
 
-Compatibility artifacts:
-
-```text
-satellite-parametermap
-        |
-        v
-satellite-data
-
-satellite-parametermap-egress-bridge
-        |
-        v
-satellite-data-egress-bridge
-```
-
-`satellite-legacy-logging` remains isolated from the new Egress model.
-
 The build contains an architecture check that fails if Satellite Data starts depending on Egress or Egress starts depending on Satellite Data.
 
 ## Satellite Data
@@ -39,7 +23,6 @@ The build contains an architecture check that fails if Satellite Data starts dep
 
 `DataDefinition` optionally adds allowed fields, types, required values and defaults.
 
-The legacy names `ParameterMap` and `ParameterInfoMap` remain deprecated compatibility APIs.
 
 ## Egress model
 
@@ -58,7 +41,6 @@ A `Key<T>` owns static semantics:
 
 `EgressEnvelope` combines typed values with this metadata. It is immutable after construction and deliberately exposes no raw `Map<String,Object>` export.
 
-The old `SatelliteMap` name remains as a deprecated compatibility facade.
 
 ## Egress boundary
 
@@ -123,18 +105,6 @@ Integration modules are separate so applications only pay for what they use.
 - SLF4J adapter: API dependency only, no forced logging backend.
 - Jackson adapter: policy-enforced JSON and JSON Schema 2020-12 interoperability.
 - OpenTelemetry adapter: policy-enforced span attributes.
-
-## Compatibility
-
-Satellite 2.x provides migration aliases:
-
-```text
-ParameterMap      -> SatelliteData
-ParameterInfoMap  -> DataDefinition
-SatelliteMap      -> EgressEnvelope
-```
-
-The old Maven artifact names are compatibility artifacts that point to the new modules.
 
 ## Release safety
 

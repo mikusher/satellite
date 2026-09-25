@@ -650,22 +650,6 @@ oversized text value   -> rejected
 
 ---
 
-## Compatibility names
-
-Satellite 2.x keeps the previous names temporarily so existing code can migrate gradually.
-
-| Deprecated name | New name |
-| --- | --- |
-| `ParameterMap` | `SatelliteData` |
-| `ParameterInfoMap` | `DataDefinition` |
-| `SatelliteMap` | `EgressEnvelope` |
-| `satellite-parametermap` | `satellite-data` |
-| `satellite-parametermap-egress-bridge` | `satellite-data-egress-bridge` |
-
-Compatibility artifacts depend on the new artifacts. New code should use the new names.
-
----
-
 ## Security guarantees
 
 - outbound data is policy-evaluated before supported sinks;

@@ -4,7 +4,7 @@ import io.github.mikusher.satellite.egress.DataCategory;
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.Key;
 import io.github.mikusher.satellite.egress.SatelliteEntry;
-import io.github.mikusher.satellite.egress.SatelliteMap;
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -27,9 +27,9 @@ public class HmacSha256TokenizerTest {
                 .classifiedAs(DataClassification.CONFIDENTIAL)
                 .category(DataCategory.PERSONAL_DATA);
 
-        SatelliteEntry<String> emailEntry = SatelliteMap.builder()
+        SatelliteEntry<String> emailEntry = EgressEnvelope.builder()
                 .put(email, "same-value").build().entry(email).get();
-        SatelliteEntry<String> usernameEntry = SatelliteMap.builder()
+        SatelliteEntry<String> usernameEntry = EgressEnvelope.builder()
                 .put(username, "same-value").build().entry(username).get();
 
         String first = tokenizer.tokenize(emailEntry);

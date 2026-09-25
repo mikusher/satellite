@@ -16,7 +16,7 @@ public class SatelliteSchemaTest {
                 .required(id)
                 .build();
 
-        SatelliteMap invalid = SatelliteMap.builder().put(extra, "x").build();
+        EgressEnvelope invalid = EgressEnvelope.builder().put(extra, "x").build();
         ValidationResult result = schema.validate(invalid);
 
         assertFalse(result.isValid());
@@ -31,6 +31,6 @@ public class SatelliteSchemaTest {
         Key<String> id = Key.string("id").required();
         SatelliteSchema schema = SatelliteSchema.builder("User").required(id).build();
 
-        assertTrue(schema.validate(SatelliteMap.builder().put(id, "42").build()).isValid());
+        assertTrue(schema.validate(EgressEnvelope.builder().put(id, "42").build()).isValid());
     }
 }

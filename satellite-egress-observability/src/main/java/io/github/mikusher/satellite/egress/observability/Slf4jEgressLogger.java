@@ -1,7 +1,6 @@
 package io.github.mikusher.satellite.egress.observability;
 
 import io.github.mikusher.satellite.egress.EgressEnvelope;
-import io.github.mikusher.satellite.egress.SatelliteMap;
 import io.github.mikusher.satellite.egress.policy.EgressContext;
 import io.github.mikusher.satellite.egress.policy.EgressProcessor;
 import io.github.mikusher.satellite.egress.policy.EgressReport;
@@ -73,33 +72,4 @@ public final class Slf4jEgressLogger {
         }
     }
 
-    @Deprecated
-    public SafeLogEvent prepare(String message, SatelliteMap data, String purpose) {
-        return prepare(message, data.asEgressEnvelope(), purpose);
-    }
-
-    @Deprecated
-    public void trace(String message, SatelliteMap data, String purpose) {
-        trace(message, data.asEgressEnvelope(), purpose);
-    }
-
-    @Deprecated
-    public void debug(String message, SatelliteMap data, String purpose) {
-        debug(message, data.asEgressEnvelope(), purpose);
-    }
-
-    @Deprecated
-    public void info(String message, SatelliteMap data, String purpose) {
-        info(message, data.asEgressEnvelope(), purpose);
-    }
-
-    @Deprecated
-    public void warn(String message, SatelliteMap data, String purpose) {
-        warn(message, data.asEgressEnvelope(), purpose);
-    }
-
-    @Deprecated
-    public void error(String message, SatelliteMap data, String purpose) {
-        error(message, data.asEgressEnvelope(), purpose);
-    }
 }

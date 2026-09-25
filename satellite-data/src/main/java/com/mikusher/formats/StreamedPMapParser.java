@@ -6,9 +6,8 @@ import com.mikusher.error.CoreError;
 import com.mikusher.error.CoreException;
 import com.mikusher.error.SatelliteException;
 import com.mikusher.parameter.PMapType;
-import com.mikusher.parameter.ParameterMap;
-import com.mikusher.parameter.ParameterMapUtils;
 import com.mikusher.parameter.SatelliteData;
+import com.mikusher.parameter.SatelliteDataUtils;
 import com.mikusher.utils.PMapReadPlugin;
 import com.mikusher.utils.StaxUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -176,7 +175,7 @@ public class StreamedPMapParser {
      * @throws XMLStreamException
      */
     public static XMLStreamReader getXMLTreeByArray(XMLStreamReader xmlStreamReader, PMapType tagType,
-                                                    ParameterMap keyValues)
+                                                    SatelliteData keyValues)
             throws XMLStreamException {
 
         XMLStreamReader result = null;
@@ -202,7 +201,7 @@ public class StreamedPMapParser {
      * @throws XMLStreamException
      */
     public static XMLStreamReader getXMLTreeByMap(XMLStreamReader xmlStreamReader, PMapType tagType,
-                                                  ParameterMap keyValues)
+                                                  SatelliteData keyValues)
             throws XMLStreamException {
 
         XMLStreamReader result = null;
@@ -225,7 +224,7 @@ public class StreamedPMapParser {
      * @param keyValues
      * @return
      */
-    public static boolean matchXMLTree(XMLStreamReader xmlStreamReader, PMapType tagType, ParameterMap keyValues) {
+    public static boolean matchXMLTree(XMLStreamReader xmlStreamReader, PMapType tagType, SatelliteData keyValues) {
 
         boolean result = false;
         if (xmlStreamReader.isStartElement() && PMapType.lookup(xmlStreamReader.getLocalName()).equals(tagType)
@@ -233,7 +232,7 @@ public class StreamedPMapParser {
             Iterator<String> keySetI = keyValues.keySet().iterator();
             do {
                 String key = keySetI.next();
-                String value = ParameterMapUtils.getString(key, keyValues);
+                String value = SatelliteDataUtils.getString(key, keyValues);
                 String xmlValue = xmlStreamReader.getAttributeValue(null, key);
                 result = xmlValue != null && xmlValue.equals(value);
             } while (keySetI.hasNext() && result);
@@ -270,7 +269,7 @@ public class StreamedPMapParser {
     }
 
     public static XMLStreamReader getXMLTreeByTree(XMLStreamReader xmlStreamReader, PMapType tagType,
-                                                   ParameterMap keyValues)
+                                                   SatelliteData keyValues)
             throws XMLStreamException {
 
         XMLStreamReader result = null;
@@ -295,7 +294,7 @@ public class StreamedPMapParser {
     }
 
     public static XMLStreamReader getXMLTreeByDocument(XMLStreamReader xmlStreamReaderDoc, PMapType tagType,
-                                                       ParameterMap keyValues)
+                                                       SatelliteData keyValues)
             throws XMLStreamException {
 
         XMLStreamReader result = null;
@@ -416,55 +415,7 @@ public class StreamedPMapParser {
         return new SatelliteData(data);
     }
 
-    /**
-     * @deprecated Use {@link #getDataFromFile(String)}.
-     */
-    @Deprecated
-    public ParameterMap getMapFromFile(String fileName) throws XMLStreamException, IOException {
-        return getDataFromFile(fileName);
-    }
-
-    /**
-     * @deprecated Use {@link #getData(File)}.
-     */
-    @Deprecated
-    public ParameterMap getMap(File file) throws XMLStreamException, IOException {
-        return getData(file);
-    }
-
-    /**
-     * @deprecated Use {@link #getData(Path)}.
-     */
-    @Deprecated
-    public ParameterMap getMap(Path path) throws XMLStreamException, IOException {
-        return getData(path);
-    }
-
-    /**
-     * @deprecated Use {@link #getData(Reader)}.
-     */
-    @Deprecated
-    public ParameterMap getMap(Reader reader) throws XMLStreamException {
-        return getData(reader);
-    }
-
-    /**
-     * @deprecated Use {@link #getData(InputStream)}.
-     */
-    @Deprecated
-    public ParameterMap getMap(InputStream is) throws XMLStreamException {
-        return getData(is);
-    }
-
-    /**
-     * @deprecated Use {@link #getData(XMLStreamReader)}.
-     */
-    @Deprecated
-    public ParameterMap getMap(XMLStreamReader reader) throws XMLStreamException {
-        return getData(reader);
-    }
-
-    public void readMap(XMLStreamReader reader, Map<String, Object> map) throws XMLStreamException {
+        public void readMap(XMLStreamReader reader, Map<String, Object> map) throws XMLStreamException {
 
         readMap(reader, map, 1, new ParseBudget(_limits));
     }
@@ -732,25 +683,7 @@ public class StreamedPMapParser {
         throw new XMLStreamException("unknown pmap format");
     }
 
-    /**
-     * @deprecated Use {@link #byteArrayToData(SerializationType, byte[])}.
-     */
-    @Deprecated
-    public ParameterMap ByteArrayToPMAP(SerializationType serType, byte[] content)
-            throws XMLStreamException, IOException {
-        return byteArrayToData(serType, content);
-    }
-
-    /**
-     * @deprecated Use {@link #inputStreamToData(SerializationType, InputStream)}.
-     */
-    @Deprecated
-    public ParameterMap InputStreamToPMAP(SerializationType serType, InputStream is)
-            throws XMLStreamException, IOException {
-        return inputStreamToData(serType, is);
-    }
-
-    public void XMLWriterToMapWithoutRoot(SerializationType serType, XMLStreamWriter writer, Map<String, Object> map)
+        public void XMLWriterToMapWithoutRoot(SerializationType serType, XMLStreamWriter writer, Map<String, Object> map)
             throws XMLStreamException {
 
         XMLWriterToMapWithoutRoot(serType, writer, map, 0);
@@ -912,38 +845,38 @@ public class StreamedPMapParser {
         return result;
     }
 
-    public ParameterMap parseArray(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
+    public SatelliteData parseArray(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
 
         String keyA = "";
         if (xmlStreamReader.getAttributeCount() > 0) {
             keyA = xmlStreamReader.getAttributeValue(0);
         }
 
-        List<ParameterMap> pMapList = new ArrayList<>();
+        List<SatelliteData> pMapList = new ArrayList<>();
         do {
             xmlStreamReader.next();
             if (xmlStreamReader.isStartElement()) {
-                ParameterMap map = parseTree(xmlStreamReader);
+                SatelliteData map = parseTree(xmlStreamReader);
                 pMapList.add(map);
             }
         } while (xmlStreamReader.hasNext() && !xmlStreamReader.isEndElement()
                 && xmlStreamReader.getEventType() != XMLStreamConstants.END_DOCUMENT);
 
-        ParameterMap result = new ParameterMap();
+        SatelliteData result = new SatelliteData();
         result.put(keyA, pMapList);
         xmlStreamReader.next();
 
         return result;
     }
 
-    public ParameterMap parseMap(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
+    public SatelliteData parseMap(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
 
 
         String keyM = "";
         if (xmlStreamReader.getAttributeCount() > 0) {
             keyM = xmlStreamReader.getAttributeValue(0);
         }
-        ParameterMap valueM = new ParameterMap();
+        SatelliteData valueM = new SatelliteData();
 
         xmlStreamReader = getFirstElementByMap(xmlStreamReader);
 
@@ -956,11 +889,11 @@ public class StreamedPMapParser {
             }
         }
 
-        final ParameterMap result;
+        final SatelliteData result;
         if (keyM == null || keyM.isEmpty()) {
             result = valueM;
         } else {
-            result = new ParameterMap();
+            result = new SatelliteData();
             result.put(keyM, valueM);
         }
 
@@ -971,9 +904,9 @@ public class StreamedPMapParser {
         return result;
     }
 
-    public ParameterMap parseTree(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
+    public SatelliteData parseTree(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
 
-        ParameterMap result = new ParameterMap();
+        SatelliteData result = new SatelliteData();
 
         if (xmlStreamReader.isStartElement()) {
 
@@ -997,9 +930,9 @@ public class StreamedPMapParser {
 
     }
 
-    public ParameterMap parseDocument(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
+    public SatelliteData parseDocument(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
 
-        ParameterMap result = new ParameterMap();
+        SatelliteData result = new SatelliteData();
 
         if (xmlStreamReader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
             xmlStreamReader.next();
@@ -1011,10 +944,10 @@ public class StreamedPMapParser {
 
     }
 
-    public List<ParameterMap> getRangeMapListByArray(XMLStreamReader xmlStreamReaderArray, int indexStart, int indexEnd)
+    public List<SatelliteData> getRangeMapListByArray(XMLStreamReader xmlStreamReaderArray, int indexStart, int indexEnd)
             throws XMLStreamException, CoreException, ParseException {
 
-        List<ParameterMap> result = new ArrayList<>();
+        List<SatelliteData> result = new ArrayList<>();
 
         if (xmlStreamReaderArray.isStartElement()) {
             PMapType pMapType = PMapType.lookup(xmlStreamReaderArray.getLocalName());
@@ -1037,10 +970,10 @@ public class StreamedPMapParser {
         return result;
     }
 
-    public List<ParameterMap> getRangeListByArray(XMLStreamReader initialPosition, int numberOfRecords)
+    public List<SatelliteData> getRangeListByArray(XMLStreamReader initialPosition, int numberOfRecords)
             throws SatelliteException, XMLStreamException, ParseException {
 
-        List<ParameterMap> result = new ArrayList<>();
+        List<SatelliteData> result = new ArrayList<>();
 
         if (initialPosition.isStartElement()) {
 
@@ -1048,7 +981,7 @@ public class StreamedPMapParser {
             while (i < numberOfRecords && initialPosition.hasNext() && !initialPosition.isEndElement()
                     && initialPosition.getEventType() != XMLStreamConstants.END_DOCUMENT) {
                 if (initialPosition.isStartElement()) {
-                    ParameterMap map = parseTree(initialPosition);
+                    SatelliteData map = parseTree(initialPosition);
                     result.add(map);
                     i++;
                 } else {

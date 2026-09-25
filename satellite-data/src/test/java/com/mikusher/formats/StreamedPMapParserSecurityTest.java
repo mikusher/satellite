@@ -1,6 +1,6 @@
 package com.mikusher.formats;
 
-import com.mikusher.parameter.ParameterMap;
+import com.mikusher.parameter.SatelliteData;
 import org.junit.Test;
 
 import javax.xml.stream.XMLStreamException;
@@ -13,10 +13,10 @@ import static org.junit.Assert.fail;
 public class StreamedPMapParserSecurityTest {
 
     @Test
-    public void parsesSimpleParameterMap() throws Exception {
+    public void parsesSimpleSatelliteData() throws Exception {
         String xml = "<?xml version=\"1.0\"?><m><s n=\"project\">satellite</s></m>";
 
-        ParameterMap map = StreamedPMapParser.getInstance().getMap(stream(xml));
+        SatelliteData map = StreamedPMapParser.getInstance().getMap(stream(xml));
 
         assertEquals("satellite", map.get("project"));
     }

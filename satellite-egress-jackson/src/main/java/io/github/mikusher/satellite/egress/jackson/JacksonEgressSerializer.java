@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.mikusher.satellite.egress.EgressEnvelope;
-import io.github.mikusher.satellite.egress.SatelliteMap;
 import io.github.mikusher.satellite.egress.policy.EgressContext;
 import io.github.mikusher.satellite.egress.policy.EgressProcessor;
 import io.github.mikusher.satellite.egress.policy.EgressReport;
@@ -37,13 +36,4 @@ public final class JacksonEgressSerializer {
         return objectMapper.writeValueAsString(result.getJson());
     }
 
-    @Deprecated
-    public JacksonEgressResult toJsonNode(SatelliteMap map, String purpose) {
-        return toJsonNode(map.asEgressEnvelope(), purpose);
-    }
-
-    @Deprecated
-    public String toJson(SatelliteMap map, String purpose) throws JsonProcessingException {
-        return toJson(map.asEgressEnvelope(), purpose);
-    }
 }

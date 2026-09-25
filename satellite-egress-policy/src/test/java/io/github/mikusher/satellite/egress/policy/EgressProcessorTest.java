@@ -3,7 +3,7 @@ package io.github.mikusher.satellite.egress.policy;
 import io.github.mikusher.satellite.egress.DataCategory;
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.Key;
-import io.github.mikusher.satellite.egress.SatelliteMap;
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -22,7 +22,7 @@ public class EgressProcessorTest {
                 .classifiedAs(DataClassification.RESTRICTED)
                 .category(DataCategory.CREDENTIAL);
 
-        SatelliteMap map = SatelliteMap.builder()
+        EgressEnvelope map = EgressEnvelope.builder()
                 .put(status, "ok")
                 .put(email, "user@example.com")
                 .put(token, "super-secret")
@@ -55,11 +55,11 @@ public class EgressProcessorTest {
                 .build();
 
         EgressReport allowed = new EgressProcessor(engine)
-                .process(SatelliteMap.builder().put(email, "user@example.com").build(),
+                .process(EgressEnvelope.builder().put(email, "user@example.com").build(),
                         EgressContext.of(EgressSink.NETWORK, "account-provider"));
 
         EgressReport denied = new EgressProcessor(engine)
-                .process(SatelliteMap.builder().put(email, "user@example.com").build(),
+                .process(EgressEnvelope.builder().put(email, "user@example.com").build(),
                         EgressContext.of(EgressSink.NETWORK, "analytics"));
 
         assertEquals("user@example.com", allowed.getOutput().get("email"));

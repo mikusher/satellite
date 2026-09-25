@@ -3,7 +3,7 @@ package io.github.mikusher.satellite.egress.opentelemetry;
 import io.github.mikusher.satellite.egress.DataCategory;
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.Key;
-import io.github.mikusher.satellite.egress.SatelliteMap;
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import io.github.mikusher.satellite.egress.policy.EgressPolicyEngine;
 import io.github.mikusher.satellite.egress.policy.EgressProcessor;
 import io.opentelemetry.api.common.AttributeKey;
@@ -26,7 +26,7 @@ public class OpenTelemetrySpanAdapterTest {
                 .classifiedAs(DataClassification.RESTRICTED)
                 .category(DataCategory.CREDENTIAL);
 
-        SatelliteMap map = SatelliteMap.builder()
+        EgressEnvelope map = EgressEnvelope.builder()
                 .put(route, "/accounts/{id}")
                 .put(email, "user@example.com")
                 .put(token, "never-export")

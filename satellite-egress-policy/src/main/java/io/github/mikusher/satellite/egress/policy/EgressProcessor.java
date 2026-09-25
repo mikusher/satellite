@@ -2,7 +2,6 @@ package io.github.mikusher.satellite.egress.policy;
 
 import io.github.mikusher.satellite.egress.EgressEnvelope;
 import io.github.mikusher.satellite.egress.SatelliteEntry;
-import io.github.mikusher.satellite.egress.SatelliteMap;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -73,16 +72,6 @@ public final class EgressProcessor {
         }
 
         return new EgressReport(output, decisions, violations);
-    }
-
-    /**
-     * @deprecated Use {@link #process(EgressEnvelope, EgressContext)}.
-     */
-    @Deprecated
-    public EgressReport process(SatelliteMap map, EgressContext context) {
-        return process(
-                Objects.requireNonNull(map, "map").asEgressEnvelope(),
-                context);
     }
 
     private static PrivacyViolation violation(SatelliteEntry<?> entry,
