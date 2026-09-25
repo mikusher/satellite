@@ -5,6 +5,11 @@ import com.mikusher.error.UnknownParameterException;
 
 import java.util.*;
 
+/**
+ * @deprecated Use {@link DataDefinition}. Kept for source and binary migration
+ * compatibility with the legacy ParameterMap API.
+ */
+@Deprecated
 public class ParameterInfoMap {
 
     private final Map<String, ParameterInfo> _map;

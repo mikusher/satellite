@@ -22,6 +22,14 @@ public class SatelliteData extends ParameterMap {
         super(initialCapacity);
     }
 
+    public SatelliteData(DataDefinition dataDefinition) {
+        super(dataDefinition);
+    }
+
+    /**
+     * @deprecated Use {@link #SatelliteData(DataDefinition)}.
+     */
+    @Deprecated
     public SatelliteData(ParameterInfoMap dataDefinition) {
         super(dataDefinition);
     }
@@ -35,6 +43,15 @@ public class SatelliteData extends ParameterMap {
         super(map, copyInputMap);
     }
 
+    public SatelliteData(Map<String, Object> map,
+                         DataDefinition dataDefinition) throws SatelliteException {
+        super(map, dataDefinition);
+    }
+
+    /**
+     * @deprecated Use {@link #SatelliteData(Map, DataDefinition)}.
+     */
+    @Deprecated
     public SatelliteData(Map<String, Object> map,
                          ParameterInfoMap dataDefinition) throws SatelliteException {
         super(map, dataDefinition);
