@@ -8,6 +8,7 @@ import com.mikusher.error.SatelliteException;
 import com.mikusher.parameter.PMapType;
 import com.mikusher.parameter.ParameterMap;
 import com.mikusher.parameter.ParameterMapUtils;
+import com.mikusher.parameter.SatelliteData;
 import com.mikusher.utils.PMapReadPlugin;
 import com.mikusher.utils.StaxUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -358,39 +359,38 @@ public class StreamedPMapParser {
         return xmlStreamReaderArray;
     }
 
-    public ParameterMap getMapFromFile(String fileName) throws XMLStreamException, IOException {
+    public SatelliteData getDataFromFile(String fileName) throws XMLStreamException, IOException {
 
-        return getMap(new File(fileName));
+        return getData(new File(fileName));
     }
 
-    public ParameterMap getMap(File file) throws XMLStreamException, IOException {
+    public SatelliteData getData(File file) throws XMLStreamException, IOException {
 
         try (Reader reader = new BufferedReader(new FileReader(file), 8192)) {
-            return getMap(reader);
+            return getData(reader);
         }
     }
 
-    public ParameterMap getMap(Path path) throws XMLStreamException, IOException {
+    public SatelliteData getData(Path path) throws XMLStreamException, IOException {
 
         try (InputStream is = path.toUri().toURL().openStream()) {
-            return getMap(is);
+            return getData(is);
         }
     }
 
-    public ParameterMap getMap(Reader reader) throws XMLStreamException {
+    public SatelliteData getData(Reader reader) throws XMLStreamException {
 
         XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
                 new LimitedReader(reader, _limits.getMaxInputCharacters()));
         try {
-            // Bypass initial elements till we get to start element
             nextStartElement(r);
-            return getMap(r);
+            return getData(r);
         } finally {
             closeQuietly(r);
         }
     }
 
-    public ParameterMap getMap(InputStream is) throws XMLStreamException {
+    public SatelliteData getData(InputStream is) throws XMLStreamException {
 
         if (is == null) {
             return null;
@@ -399,23 +399,69 @@ public class StreamedPMapParser {
         XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
                 new LimitedInputStream(is, _limits.getMaxInputBytes()));
         try {
-            // Bypass initial elements till we get to start element
             nextStartElement(r);
-
-            return getMap(r);
+            return getData(r);
         } finally {
             closeQuietly(r);
         }
     }
 
-    public ParameterMap getMap(XMLStreamReader reader) throws XMLStreamException {
+    public SatelliteData getData(XMLStreamReader reader) throws XMLStreamException {
 
         reader.next();
 
-        Map<String, Object> omap = new HashMap<>();
-        readMap(reader, omap, 1, new ParseBudget(_limits));
+        Map<String, Object> data = new HashMap<>();
+        readMap(reader, data, 1, new ParseBudget(_limits));
 
-        return new ParameterMap(omap);
+        return new SatelliteData(data);
+    }
+
+    /**
+     * @deprecated Use {@link #getDataFromFile(String)}.
+     */
+    @Deprecated
+    public ParameterMap getMapFromFile(String fileName) throws XMLStreamException, IOException {
+        return getDataFromFile(fileName);
+    }
+
+    /**
+     * @deprecated Use {@link #getData(File)}.
+     */
+    @Deprecated
+    public ParameterMap getMap(File file) throws XMLStreamException, IOException {
+        return getData(file);
+    }
+
+    /**
+     * @deprecated Use {@link #getData(Path)}.
+     */
+    @Deprecated
+    public ParameterMap getMap(Path path) throws XMLStreamException, IOException {
+        return getData(path);
+    }
+
+    /**
+     * @deprecated Use {@link #getData(Reader)}.
+     */
+    @Deprecated
+    public ParameterMap getMap(Reader reader) throws XMLStreamException {
+        return getData(reader);
+    }
+
+    /**
+     * @deprecated Use {@link #getData(InputStream)}.
+     */
+    @Deprecated
+    public ParameterMap getMap(InputStream is) throws XMLStreamException {
+        return getData(is);
+    }
+
+    /**
+     * @deprecated Use {@link #getData(XMLStreamReader)}.
+     */
+    @Deprecated
+    public ParameterMap getMap(XMLStreamReader reader) throws XMLStreamException {
+        return getData(reader);
     }
 
     public void readMap(XMLStreamReader reader, Map<String, Object> map) throws XMLStreamException {
@@ -501,7 +547,7 @@ public class StreamedPMapParser {
                         budget.checkDepth(depth + 1);
                         Map<String, Object> innerMap = new HashMap<>();
                         readMap(reader, innerMap, depth + 1, budget);
-                        return new ParameterMap(innerMap);
+                        return new SatelliteData(innerMap);
                     case ARRAY:
                         budget.checkDepth(depth + 1);
                         return parseList(reader, depth + 1, budget);
@@ -651,21 +697,24 @@ public class StreamedPMapParser {
         }
     }
 
-    public ParameterMap ByteArrayToPMAP(SerializationType serType, byte[] content)
+    public SatelliteData byteArrayToData(SerializationType serType, byte[] content)
             throws XMLStreamException, IOException {
 
         try (ByteArrayInputStream bis = new ByteArrayInputStream(content)) {
-            return InputStreamToPMAP(serType, bis);
+            return inputStreamToData(serType, bis);
         }
     }
 
-    public ParameterMap InputStreamToPMAP(SerializationType serType, InputStream is)
+    public SatelliteData inputStreamToData(SerializationType serType, InputStream is)
             throws XMLStreamException, IOException {
 
         XMLStreamReader reader = createXmlInputFactory().createXMLStreamReader(
-                new InputStreamReader(new LimitedInputStream(is, _limits.getMaxInputBytes()), CHARSET));
+                new InputStreamReader(
+                        new LimitedInputStream(is, _limits.getMaxInputBytes()),
+                        CHARSET));
         try {
-            final String pname = serType.getVersion() == 1 ? PMapType.MAP.getOldPMapName()
+            final String pname = serType.getVersion() == 1
+                    ? PMapType.MAP.getOldPMapName()
                     : PMapType.MAP.getShortName();
 
             reader.nextTag();
@@ -674,13 +723,31 @@ public class StreamedPMapParser {
             if ((rootTag != null && rootTag.equals(pname))
                     || (serType.getVersion() == 1 && pname != null
                     && pname.equals(reader.getAttributeValue(null, "type")))) {
-                return getMap(reader);
+                return getData(reader);
             }
         } finally {
             closeQuietly(reader);
         }
 
         throw new XMLStreamException("unknown pmap format");
+    }
+
+    /**
+     * @deprecated Use {@link #byteArrayToData(SerializationType, byte[])}.
+     */
+    @Deprecated
+    public ParameterMap ByteArrayToPMAP(SerializationType serType, byte[] content)
+            throws XMLStreamException, IOException {
+        return byteArrayToData(serType, content);
+    }
+
+    /**
+     * @deprecated Use {@link #inputStreamToData(SerializationType, InputStream)}.
+     */
+    @Deprecated
+    public ParameterMap InputStreamToPMAP(SerializationType serType, InputStream is)
+            throws XMLStreamException, IOException {
+        return inputStreamToData(serType, is);
     }
 
     public void XMLWriterToMapWithoutRoot(SerializationType serType, XMLStreamWriter writer, Map<String, Object> map)
