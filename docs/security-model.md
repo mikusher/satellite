@@ -1,10 +1,10 @@
 # Satellite Egress security model
 
-This document describes the current security model implemented by the 2.x foundation.
+This document describes the current Satellite 2.x security model.
 
 ## Classification is not category
 
-Satellite intentionally separates disclosure level from semantic data type.
+Satellite separates disclosure level from semantic data type.
 
 ### DataClassification
 
@@ -25,7 +25,7 @@ Examples include:
 - `LOCATION`
 - device/network identifiers
 
-A personal-data field can therefore be confidential or restricted without pretending that "PII" is itself a disclosure level.
+A personal-data field can therefore be confidential or restricted without treating PII as a disclosure level.
 
 ## Runtime metadata
 
@@ -34,7 +34,7 @@ A personal-data field can therefore be confidential or restricted without preten
 - `DataOrigin`
 - `TrustLevel`
 
-These belong to a value, not to the key definition. For example, `search.term` may be validated in one request and untrusted in another.
+These belong to a value, not to the key definition. The same logical field may be validated in one flow and untrusted in another.
 
 ## Default policy
 
@@ -53,9 +53,9 @@ Application-specific rules are evaluated before the default rule.
 
 ## Purpose limitation
 
-`PolicyRule` can match a concrete purpose in addition to key, sink, classification, category, origin and trust level.
+`PolicyRule` can match purpose together with key, sink, classification, category, origin and trust level.
 
-An explicit authorization for:
+An authorization for:
 
 ```text
 key=user.email
@@ -71,9 +71,9 @@ Purpose strings and key names reject control characters.
 
 If no rule returns a decision, `EgressPolicyEngine` returns `DENY`.
 
-If a rule requests `TOKENIZE` without a configured tokenizer, `EgressProcessor` converts that outcome to `DENY` and records a violation.
+If `TOKENIZE` is requested without a tokenizer, or redaction/tokenization fails, `EgressProcessor` converts the operation to `DENY`.
 
-Denied values are not present in the output map.
+Denied values never appear in the approved output.
 
 ## Pseudonymization
 
@@ -83,15 +83,15 @@ Properties:
 
 - HMAC-SHA-256;
 - minimum 32-byte application-supplied key;
-- key name is included before the value, providing domain separation between fields;
+- key-name domain separation;
 - original value is not embedded in the token;
-- unsupported complex objects are rejected rather than serialized ambiguously.
+- unsupported complex objects are rejected.
 
 This is pseudonymization, not anonymization.
 
 ## PrivacyViolation
 
-A violation contains only metadata required to explain the policy decision:
+A violation contains only metadata needed to explain the decision:
 
 - key name;
 - sink;
@@ -102,31 +102,31 @@ A violation contains only metadata required to explain the policy decision:
 - origin;
 - trust level.
 
-It intentionally does not contain the protected value.
+It never contains the protected value.
 
 ## Adapter boundary
 
-The supported adapters accept `SatelliteMap` rather than arbitrary maps:
+Supported adapters accept `EgressEnvelope`:
 
 - SLF4J;
 - Jackson;
 - OpenTelemetry.
 
-Each adapter calls `EgressProcessor` before writing to the destination.
+Each adapter invokes `EgressProcessor` before writing to the destination.
 
-The SLF4J adapter additionally escapes line breaks and control characters in emitted text.
+The SLF4J adapter also escapes line breaks and control characters.
 
 ## Preventing classification downgrade
 
-`SatelliteMap.Builder` and `SatelliteSchema.Builder` reject conflicting `Key` definitions that share the same external name.
+`EgressEnvelope.Builder` and `SatelliteSchema.Builder` reject conflicting `Key` definitions that share the same external name.
 
-This prevents an envelope from containing, for example, both a restricted `token` definition and a public `token` alias that could collide during egress.
+This prevents a restricted field and a public alias from colliding during egress.
 
-## Legacy ParameterMap
+## Satellite Data bridge
 
-ParameterMap remains independent.
+`SatelliteData` remains independent from Egress.
 
-The optional bridge requires an explicit registry of typed Egress keys. Strict conversion fails on an unclassified legacy field instead of silently exporting it.
+The optional `SatelliteDataEgressBridge` requires an explicit registry of typed Egress keys. Strict conversion fails on an unclassified field instead of silently exporting it.
 
 ## Threats not solved by Satellite
 

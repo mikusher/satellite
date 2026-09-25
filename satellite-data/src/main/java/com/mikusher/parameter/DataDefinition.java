@@ -48,7 +48,7 @@ public class DataDefinition {
     /***************************************************************************
      *
      * Initializes an empty description, providing a name and a description
-     * for this <code>parameterInfoMap</code>.
+     * for this <code>dataDefinition</code>.
      *
      ***************************************************************************/
     public DataDefinition(String name, String description) {
@@ -64,7 +64,7 @@ public class DataDefinition {
      *
      * Initializes the description from the <code>paramInfo</code> array
      * of <code>ParameterInfo</code>, providing a name and a description
-     * for this <code>parameterInfoMap</code>.
+     * for this <code>dataDefinition</code>.
      *
      ***************************************************************************/
     public DataDefinition(String name, String description, ParameterInfo[] paramInfo) {
