@@ -30,7 +30,7 @@ Use either one independently, or connect them with the optional bridge.
 
 ## 1. ParameterMap only
 
-Use Satellite as a dynamic typed map without the Egress framework.
+Use Satellite as a dynamic typed map without Egress.
 
 ```java
 ParameterMap params = new ParameterMap();
@@ -44,7 +44,13 @@ int retry = params.getInt("retry");
 boolean active = params.getBoolean("active");
 ```
 
-This module remains independently usable.
+**Expected result**
+
+```text
+caseNumber = C12.12343
+retry      = 3
+active     = true
+```
 
 ---
 
@@ -54,7 +60,8 @@ A `Key<T>` defines the Java type and static security metadata.
 
 ```java
 Key<String> userId = Key.string("user.id")
-        .classifiedAs(DataClassification.PUBLIC);
+        .classifiedAs(DataClassification.PUBLIC)
+        .required();
 
 Key<String> email = Key.string("user.email")
         .classifiedAs(DataClassification.CONFIDENTIAL)
@@ -65,39 +72,25 @@ Key<String> accessToken = Key.string("auth.access_token")
         .category(DataCategory.CREDENTIAL);
 ```
 
-Classification answers **how restricted** the value is.
+**Expected definitions**
 
 ```text
-PUBLIC
-INTERNAL
-CONFIDENTIAL
-RESTRICTED
+user.id           -> String / PUBLIC / required
+user.email        -> String / CONFIDENTIAL / PERSONAL_DATA
+auth.access_token -> String / RESTRICTED / CREDENTIAL
 ```
 
-Category answers **what kind of data** it is.
-
-Examples:
-
-```text
-PERSONAL_DATA
-CREDENTIAL
-SECRET
-FINANCIAL
-HEALTH
-LOCATION
-DEVICE_IDENTIFIER
-NETWORK_IDENTIFIER
-```
+Classification answers **how restricted** the value is. Category answers **what kind of data** it is.
 
 ---
 
 ## 3. Build a SatelliteMap
 
-`SatelliteMap` is an immutable typed data envelope.
-
-Runtime metadata such as origin and trust belongs to the value, not the key.
+`SatelliteMap` is an immutable typed data envelope. Origin and trust belong to each runtime value.
 
 ```java
+String token = "eyJhbGciOi...";
+
 SatelliteMap data = SatelliteMap.builder()
         .put(userId, "user-123")
         .put(
@@ -115,13 +108,21 @@ SatelliteMap data = SatelliteMap.builder()
         .build();
 ```
 
-Supported origins include application data, user input, HTTP headers/body, query parameters, cookies, databases, configuration, environment and third parties.
+**Expected logical content inside the application**
+
+```text
+user.id           = user-123
+user.email        = user@example.com   [DATABASE / VALIDATED]
+auth.access_token = eyJhbGciOi...      [HTTP_HEADER / UNTRUSTED]
+```
+
+The values still exist inside the application. Egress policy controls what may leave it.
 
 ---
 
 ## 4. Apply secure defaults
 
-All outbound data can be evaluated before it reaches a sink.
+Evaluate the envelope before sending it to a sink.
 
 ```java
 EgressProcessor processor =
@@ -134,14 +135,22 @@ EgressReport report = processor.process(
                 "request-diagnostics"));
 ```
 
-For the example above, the approved output is conceptually:
+**Expected approved output**
 
 ```text
 user.id=user-123
 user.email=[REDACTED]
 ```
 
-`auth.access_token` is denied and is not included in the output.
+**Expected decisions**
+
+```text
+user.id           -> ALLOW
+user.email        -> REDACT
+auth.access_token -> DENY
+```
+
+The denied token is absent from `report.getOutput()`.
 
 ### Default behavior
 
@@ -160,9 +169,7 @@ If no rule matches, the engine **fails closed**.
 
 ## 5. Allow data for one specific purpose
 
-A positive rule must be scoped to both **sink** and **purpose**.
-
-Example: the email may be sent to an account provider, but not to arbitrary network destinations.
+Positive rules require both a **sink** and a **purpose**.
 
 ```java
 EgressPolicyEngine policy = EgressPolicyEngine.builder()
@@ -176,30 +183,43 @@ EgressPolicyEngine policy = EgressPolicyEngine.builder()
                         .build())
         .add(new DefaultEgressRule())
         .build();
+
+EgressProcessor networkProcessor =
+        new EgressProcessor(policy);
+
+EgressReport allowed = networkProcessor.process(
+        data,
+        EgressContext.of(
+                EgressSink.NETWORK,
+                "account-provider"));
+
+EgressReport denied = networkProcessor.process(
+        data,
+        EgressContext.of(
+                EgressSink.NETWORK,
+                "analytics"));
 ```
 
-This matches:
+**Expected result**
 
-```java
-EgressContext.of(EgressSink.NETWORK, "account-provider");
+```text
+purpose=account-provider
+user.email -> ALLOW -> user@example.com
+
+purpose=analytics
+user.email -> DENY  -> absent from output
 ```
 
-This does not:
-
-```java
-EgressContext.of(EgressSink.NETWORK, "analytics");
-```
-
-Narrow rules should come before `DefaultEgressRule`.
+The same value can be allowed for one legitimate use and denied for another.
 
 ---
 
 ## 6. Match policies by metadata
 
-Policies can match more than a single key.
+Policies can match classification, category, origin, trust, sink and purpose.
 
 ```java
-PolicyRule rule = PolicyRule.builder()
+PolicyRule redactUntrustedPii = PolicyRule.builder()
         .category(DataCategory.PERSONAL_DATA)
         .origin(DataOrigin.USER_INPUT)
         .trustLevel(TrustLevel.UNTRUSTED)
@@ -207,23 +227,40 @@ PolicyRule rule = PolicyRule.builder()
         .action(EgressAction.REDACT)
         .reasonCode("UNTRUSTED_PII_IN_LOG")
         .build();
+
+EgressPolicyEngine policy = EgressPolicyEngine.builder()
+        .add(redactUntrustedPii)
+        .add(new DefaultEgressRule())
+        .build();
+
+SatelliteMap input = SatelliteMap.builder()
+        .put(
+                email,
+                "user@example.com",
+                ValueMetadata.of(
+                        DataOrigin.USER_INPUT,
+                        TrustLevel.UNTRUSTED))
+        .build();
+
+EgressReport result = new EgressProcessor(policy).process(
+        input,
+        EgressContext.of(EgressSink.LOG, "request-log"));
 ```
 
-Available matchers include:
+**Expected output**
 
-- key or key name
-- classification
-- category
-- origin
-- trust level
-- sink
-- purpose
+```text
+user.email=[REDACTED]
+reason=UNTRUSTED_PII_IN_LOG
+```
+
+All configured matchers must match before the rule applies.
 
 ---
 
 ## 7. Pseudonymize instead of exposing
 
-Use `TOKENIZE` when correlation is needed without exposing the original value.
+Use `TOKENIZE` when correlation is needed without revealing the original value.
 
 ```java
 Key<String> customerId = Key.string("customer.id")
@@ -241,19 +278,33 @@ EgressPolicyEngine policy = EgressPolicyEngine.builder()
         .add(new DefaultEgressRule())
         .build();
 
-HmacSha256Tokenizer tokenizer =
-        new HmacSha256Tokenizer(loadSecretFromKms());
+byte[] hmacKey = loadSecretFromKms(); // At least 32 bytes.
 
-EgressProcessor processor =
-        new EgressProcessor(
-                policy,
-                new ConstantRedactor(),
-                tokenizer);
+EgressProcessor processor = new EgressProcessor(
+        policy,
+        new ConstantRedactor(),
+        new HmacSha256Tokenizer(hmacKey));
+
+SatelliteMap analyticsData = SatelliteMap.builder()
+        .put(customerId, "45783910")
+        .build();
+
+EgressReport result = processor.process(
+        analyticsData,
+        EgressContext.of(
+                EgressSink.STORAGE,
+                "analytics"));
 ```
 
-The output is deterministic for the same key/value and does not expose the original identifier.
+**Expected output**
 
-Use a real secret manager for the HMAC key. Do not hard-code it.
+```text
+customer.id=hmac-sha256:<stable-token>
+```
+
+The exact token depends on the HMAC secret. The original value `45783910` is not exported.
+
+For the same key, value and secret, the token is deterministic.
 
 ---
 
@@ -262,31 +313,40 @@ Use a real secret manager for the HMAC key. Do not hard-code it.
 Denied egress creates a `PrivacyViolation`.
 
 ```java
-EgressReport report = processor.process(
-        data,
-        EgressContext.of(EgressSink.LOG, "request-diagnostics"));
+EgressReport report =
+        new EgressProcessor(EgressPolicyEngine.secureDefaults())
+                .process(
+                        data,
+                        EgressContext.of(
+                                EgressSink.LOG,
+                                "request-diagnostics"));
 
-if (report.hasViolations()) {
-    for (PrivacyViolation violation : report.getViolations()) {
-        System.out.println(violation.getReasonCode());
-    }
+for (PrivacyViolation violation : report.getViolations()) {
+    System.out.println(violation.getReasonCode());
 }
 ```
 
-Violations contain metadata such as key name, sink, purpose, classification, category, origin and trust level.
+**Expected output**
 
-They **do not contain the protected value**.
+```text
+SECRET_CATEGORY_DENIED
+```
+
+The violation identifies the blocked key and policy context, but never contains the protected token value.
 
 ---
 
 ## 9. Safe SLF4J logging
 
-The SLF4J adapter accepts `SatelliteMap`, runs the policy first and only logs the approved representation.
+The SLF4J adapter runs policy enforcement before writing the log line.
 
 ```java
+EgressProcessor loggingProcessor =
+        new EgressProcessor(EgressPolicyEngine.secureDefaults());
+
 Slf4jEgressLogger logger = new Slf4jEgressLogger(
         LoggerFactory.getLogger(MyService.class),
-        processor);
+        loggingProcessor);
 
 logger.info(
         "Processing authentication request",
@@ -294,13 +354,13 @@ logger.info(
         "authentication-diagnostics");
 ```
 
-Example result:
+**Expected log**
 
 ```text
 Processing authentication request {user.email=[REDACTED], user.id=user-123}
 ```
 
-Denied credentials are absent.
+`auth.access_token` is absent.
 
 Control characters are escaped to reduce log-injection risk.
 
@@ -314,24 +374,43 @@ Jackson serialization also passes through policy enforcement.
 JacksonEgressSerializer serializer =
         new JacksonEgressSerializer(
                 new ObjectMapper(),
-                processor);
+                new EgressProcessor(
+                        EgressPolicyEngine.secureDefaults()));
 
 String json = serializer.toJson(
         data,
         "public-api-response");
 ```
 
-The serializer does not receive a raw map bypass. It serializes only `EgressReport.getOutput()`.
+**Expected JSON**
+
+```json
+{
+  "user.id": "user-123"
+}
+```
+
+Why:
+
+```text
+user.id           -> PUBLIC       -> included
+user.email        -> CONFIDENTIAL -> denied for generic serialization
+auth.access_token -> CREDENTIAL   -> denied
+```
+
+The serializer only receives the policy-approved representation.
 
 ---
 
 ## 11. Safe OpenTelemetry attributes
 
-Use the same policy model before data becomes trace attributes.
+Apply the same policy before values become trace attributes.
 
 ```java
 OpenTelemetrySpanAdapter adapter =
-        new OpenTelemetrySpanAdapter(processor);
+        new OpenTelemetrySpanAdapter(
+                new EgressProcessor(
+                        EgressPolicyEngine.secureDefaults()));
 
 adapter.applyToSpan(
         Span.current(),
@@ -339,10 +418,10 @@ adapter.applyToSpan(
         "request-trace");
 ```
 
-Example:
+**Expected span attributes**
 
 ```text
-http.route=/users/{id}
+user.id=user-123
 user.email=[REDACTED]
 auth.access_token=<absent>
 ```
@@ -353,54 +432,83 @@ Sensitive values cannot be explicitly allowed **raw** into observability sinks. 
 
 ## 12. Schema validation
 
-A `SatelliteSchema` validates which typed keys are expected.
+A `SatelliteSchema` defines the allowed typed keys and required fields.
 
 ```java
 SatelliteSchema userSchema = SatelliteSchema.builder("User")
-        .required(userId.required())
+        .required(userId)
         .optional(email)
+        .optional(accessToken)
         .build();
 
-ValidationResult result = userSchema.validate(data);
-
-if (!result.isValid()) {
-    result.getErrors().forEach(System.out::println);
-}
+ValidationResult valid = userSchema.validate(data);
 ```
 
-Conflicting definitions using the same external key name are rejected.
+**Expected result**
+
+```text
+valid.isValid() = true
+errors          = []
+```
+
+Missing a required key fails validation:
+
+```java
+SatelliteMap missingUserId = SatelliteMap.builder()
+        .put(email, "user@example.com")
+        .build();
+
+ValidationResult invalid =
+        userSchema.validate(missingUserId);
+```
+
+**Expected result**
+
+```text
+invalid.isValid() = false
+error.code        = REQUIRED_VALUE_MISSING
+error.key         = user.id
+```
 
 ---
 
 ## 13. JSON Schema 2020-12
 
-Export a Satellite schema:
+Export the same schema to JSON Schema.
 
 ```java
-JsonSchemaExporter exporter =
-        new JsonSchemaExporter(new ObjectMapper());
-
-JsonNode jsonSchema = exporter.export(userSchema);
+JsonNode jsonSchema =
+        new JsonSchemaExporter(
+                new ObjectMapper())
+                .export(userSchema);
 ```
 
-Satellite metadata is preserved with `x-satellite-*` extensions.
-
-Example:
+**Expected JSON Schema structure**
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "User",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
+    "user.id": {
+      "type": "string",
+      "x-satellite-classification": "PUBLIC",
+      "x-satellite-java-type": "java.lang.String"
+    },
     "user.email": {
       "type": "string",
       "x-satellite-classification": "CONFIDENTIAL",
-      "x-satellite-categories": ["PERSONAL_DATA"],
-      "x-satellite-java-type": "java.lang.String"
+      "x-satellite-java-type": "java.lang.String",
+      "x-satellite-categories": ["PERSONAL_DATA"]
     }
-  }
+  },
+  "required": ["user.id"]
 }
 ```
+
+The real export also contains the other keys present in `userSchema`.
 
 Import the supported flat-object subset:
 
@@ -409,13 +517,22 @@ SatelliteSchema imported =
         new JsonSchemaImporter().importSchema(jsonSchema);
 ```
 
+**Expected result**
+
+```text
+imported.name            = User
+imported.required        = [user.id]
+imported.user.email.type = java.lang.String
+imported.user.email.classification = CONFIDENTIAL
+```
+
 Ambiguous or unsupported definitions are rejected instead of guessed.
 
 ---
 
 ## 14. Migrate from ParameterMap
 
-The bridge lets existing applications adopt Egress without replacing ParameterMap.
+Existing applications can keep ParameterMap and add Egress only at the boundary.
 
 ```java
 ParameterMap params = new ParameterMap();
@@ -432,37 +549,76 @@ BridgeResult bridged = ParameterMapEgressBridge.toSatelliteMap(
 SatelliteMap safeData = bridged.getSatelliteMap();
 ```
 
-Strict mode rejects any ParameterMap field without an explicit `Key<?>`.
+**Expected result**
 
 ```text
+safeData[user.id]    = user-123
+safeData[user.email] = user@example.com
+ignoredKeys          = []
+```
+
+Strict mode rejects unknown fields:
+
+```java
+params.put("forgotten-secret", "do-not-export");
+
+ParameterMapEgressBridge.toSatelliteMap(
+        params,
+        Arrays.asList(userId, email),
+        ValueMetadata.unknown());
+```
+
+**Expected result**
+
+```text
+IllegalArgumentException:
 Unclassified ParameterMap key: forgotten-secret
 ```
 
-For controlled migrations, lenient mode is explicit:
+Lenient migration is explicit:
 
 ```java
 BridgeResult result = ParameterMapEgressBridge.toSatelliteMapLenient(
         params,
         Arrays.asList(userId, email),
         ValueMetadata.unknown());
-
-List<String> ignored = result.getIgnoredKeys();
 ```
 
-Convert policy-approved data back to ParameterMap:
+**Expected result**
+
+```text
+ignoredKeys = [forgotten-secret]
+```
+
+Convert only policy-approved output back to ParameterMap:
 
 ```java
+EgressReport safeReport =
+        new EgressProcessor(EgressPolicyEngine.secureDefaults())
+                .process(
+                        safeData,
+                        EgressContext.of(
+                                EgressSink.LOG,
+                                "migration-log"));
+
 ParameterMap safe =
-        ParameterMapEgressBridge.toSafeParameterMap(report);
+        ParameterMapEgressBridge.toSafeParameterMap(safeReport);
 ```
 
-Denied values are not restored.
+**Expected result**
+
+```text
+user.id    = user-123
+user.email = [REDACTED]
+```
+
+Denied values are never restored.
 
 ---
 
 ## 15. Hardened PMAP/XML parsing
 
-PMAP/XML parsing disables DTDs and external entities and applies finite resource limits.
+PMAP/XML parsing blocks DTDs/external entities and applies finite resource limits.
 
 ```java
 PMapParserLimits limits = PMapParserLimits.builder()
@@ -476,15 +632,41 @@ PMapParserLimits limits = PMapParserLimits.builder()
 
 StreamedPMapParser parser =
         new StreamedPMapParser(limits);
+
+String xml =
+        "<m><s n=\"status\">ok</s></m>";
+
+ParameterMap parsed = parser.getMap(
+        new ByteArrayInputStream(
+                xml.getBytes(StandardCharsets.UTF_8)));
+
+String status = parsed.getString("status");
 ```
 
-Use `maxInputBytes` for `InputStream` input and `maxInputCharacters` for `Reader` input.
+**Expected result**
+
+```text
+status = ok
+```
+
+**Expected behavior for invalid input**
+
+```text
+XXE / DTD              -> rejected
+input over byte limit  -> rejected
+Reader over char limit -> rejected
+nesting over maxDepth  -> rejected
+too many entries       -> rejected
+oversized text value   -> rejected
+```
+
+Use `maxInputBytes` for `InputStream` and `maxInputCharacters` for `Reader`.
 
 ---
 
 ## Security guarantees
 
-Satellite is designed around a few explicit rules:
+Satellite is designed around explicit rules:
 
 - outbound data is policy-evaluated before supported sinks;
 - unmatched egress fails closed;
@@ -507,15 +689,13 @@ See [SECURITY.md](SECURITY.md) and [docs/architecture.md](docs/architecture.md).
 mvn --batch-mode --no-transfer-progress verify
 ```
 
-The repository includes:
+**Expected result**
 
-- Java 11 / 17 / 21 CI
-- CodeQL
-- Dependabot
-- dependency review when GitHub Dependency Graph is available
-- CycloneDX SBOM generation
-- module-boundary enforcement
-- release workflow with snapshot publication protection
+```text
+BUILD SUCCESS
+```
+
+The repository includes Java 11/17/21 CI, CodeQL, Dependabot, CycloneDX SBOM generation, module-boundary enforcement and guarded release workflows.
 
 ---
 
@@ -523,7 +703,7 @@ The repository includes:
 
 Satellite 2.x is under active development. The API may still change before the first stable 2.x release.
 
-The legacy ParameterMap and legacy logging code remain isolated in dedicated modules.
+Legacy ParameterMap and legacy logging remain isolated in dedicated modules.
 
 ## License
 
