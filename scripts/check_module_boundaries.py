@@ -21,6 +21,23 @@ EGRESS_MODULES = {
 
 errors = []
 
+FORBIDDEN_LEGACY_NAMES = (
+    "ParameterMap",
+    "ParameterInfoMap",
+    "SatelliteMap",
+    "satellite-parametermap",
+)
+
+SCAN_SUFFIXES = {
+    ".java",
+    ".md",
+    ".xml",
+    ".yml",
+    ".yaml",
+    ".py",
+    ".properties",
+}
+
 
 def dependencies(module: str):
     pom = ROOT / module / "pom.xml"
@@ -80,6 +97,28 @@ for required in {
 }:
     if required not in bridge_dependencies:
         errors.append(f"{BRIDGE} is missing required dependency {required[0]}:{required[1]}")
+
+# Satellite 2 is pre-release: legacy public naming must not reappear.
+for candidate in ROOT.rglob("*"):
+    if not candidate.is_file():
+        continue
+    if any(part in {".git", "target"} for part in candidate.parts):
+        continue
+    if candidate.suffix not in SCAN_SUFFIXES and candidate.name != "pom.xml":
+        continue
+
+    source = candidate.read_text(encoding="utf-8", errors="strict")
+    relative = candidate.relative_to(ROOT)
+
+    # The enforcement script contains the forbidden tokens by definition.
+    if relative == Path("scripts/check_module_boundaries.py"):
+        continue
+
+    for legacy_name in FORBIDDEN_LEGACY_NAMES:
+        if legacy_name in source or legacy_name.lower() in source.lower():
+            errors.append(
+                f"{relative} still contains removed Satellite 2 name: {legacy_name}"
+            )
 
 if errors:
     print("Satellite architecture boundary violations:", file=sys.stderr)
