@@ -14,7 +14,7 @@ public class PMapParserLimitsTest {
         StreamedPMapParser parser = new StreamedPMapParser(
                 PMapParserLimits.builder().maxCollectionSize(1).build());
 
-        parser.getMap(stream("<m><s n=\"a\">1</s><s n=\"b\">2</s></m>"));
+        parser.getData(stream("<m><s n=\"a\">1</s><s n=\"b\">2</s></m>"));
     }
 
     @Test(expected = XMLStreamException.class)
@@ -22,7 +22,7 @@ public class PMapParserLimitsTest {
         StreamedPMapParser parser = new StreamedPMapParser(
                 PMapParserLimits.builder().maxDepth(2).build());
 
-        parser.getMap(stream("<m><m n=\"a\"><m n=\"b\"><s n=\"v\">x</s></m></m></m>"));
+        parser.getData(stream("<m><m n=\"a\"><m n=\"b\"><s n=\"v\">x</s></m></m></m>"));
     }
 
     @Test(expected = XMLStreamException.class)
@@ -30,7 +30,7 @@ public class PMapParserLimitsTest {
         StreamedPMapParser parser = new StreamedPMapParser(
                 PMapParserLimits.builder().maxTextLength(3).build());
 
-        parser.getMap(stream("<m><s n=\"v\">abcd</s></m>"));
+        parser.getData(stream("<m><s n=\"v\">abcd</s></m>"));
     }
 
     @Test(expected = XMLStreamException.class)
@@ -38,7 +38,7 @@ public class PMapParserLimitsTest {
         StreamedPMapParser parser = new StreamedPMapParser(
                 PMapParserLimits.builder().maxInputBytes(16).build());
 
-        parser.getMap(stream("<m><s n=\"value\">this-is-too-large</s></m>"));
+        parser.getData(stream("<m><s n=\"value\">this-is-too-large</s></m>"));
     }
 
     @Test(expected = XMLStreamException.class)
@@ -46,7 +46,7 @@ public class PMapParserLimitsTest {
         StreamedPMapParser parser = new StreamedPMapParser(
                 PMapParserLimits.builder().maxInputCharacters(16).build());
 
-        parser.getMap(new StringReader("<m><s n=\"value\">this-is-too-large</s></m>"));
+        parser.getData(new StringReader("<m><s n=\"value\">this-is-too-large</s></m>"));
     }
 
     private static ByteArrayInputStream stream(String value) {

@@ -16,7 +16,7 @@ public class StreamedPMapParserSecurityTest {
     public void parsesSimpleSatelliteData() throws Exception {
         String xml = "<?xml version=\"1.0\"?><m><s n=\"project\">satellite</s></m>";
 
-        SatelliteData map = StreamedPMapParser.getInstance().getMap(stream(xml));
+        SatelliteData map = StreamedPMapParser.getInstance().getData(stream(xml));
 
         assertEquals("satellite", map.get("project"));
     }
@@ -28,7 +28,7 @@ public class StreamedPMapParserSecurityTest {
                 + "<m><s n=\"value\">&xxe;</s></m>";
 
         try {
-            StreamedPMapParser.getInstance().getMap(stream(xml));
+            StreamedPMapParser.getInstance().getData(stream(xml));
             fail("External entity input must not be accepted");
         } catch (XMLStreamException expected) {
             // Secure parser configuration rejects entity expansion.

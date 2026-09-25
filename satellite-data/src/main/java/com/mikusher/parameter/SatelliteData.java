@@ -1650,10 +1650,17 @@ public class SatelliteData implements DataMap {
      *                <code>SatelliteData</code> object.
      *
      ***************************************************************************/
-    @Override
-    public SatelliteData getMap(String paramName) throws UnknownParameterException, IncorrectTypeException {
+    public SatelliteData getData(String paramName)
+            throws UnknownParameterException, IncorrectTypeException {
 
         return getTypedParameter(ParameterTypes.Map, paramName);
+    }
+
+    @Override
+    public SatelliteData getMap(String paramName)
+            throws UnknownParameterException, IncorrectTypeException {
+
+        return getData(paramName);
     }
 
     /***************************************************************************

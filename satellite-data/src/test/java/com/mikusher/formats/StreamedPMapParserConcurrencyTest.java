@@ -33,7 +33,7 @@ public class StreamedPMapParserConcurrencyTest {
                         assertNotNull(parsed);
 
                         String xml = "<m><s n=\"value\">satellite</s></m>";
-                        SatelliteData map = parser.getMap(new ByteArrayInputStream(
+                        SatelliteData map = parser.getData(new ByteArrayInputStream(
                                 xml.getBytes(StandardCharsets.UTF_8)));
                         assertEquals("satellite", map.get("value"));
                     }
