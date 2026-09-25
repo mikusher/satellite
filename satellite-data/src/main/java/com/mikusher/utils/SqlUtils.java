@@ -29,7 +29,7 @@ public class SqlUtils {
         }
 
         try {
-            return StreamedPMapParser.getInstance().getMap(reader);
+            return StreamedPMapParser.getInstance().getData(reader);
         } catch (XMLStreamException e) {
             throw new SQLException(e);
         }
