@@ -17,6 +17,11 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+/**
+ * @deprecated Use {@link SatelliteData}. ParameterMap remains available as a
+ * compatibility API for existing Satellite users.
+ */
+@Deprecated
 public class ParameterMap implements DataMap {
 
     protected static final char SIMPLE = 'S';

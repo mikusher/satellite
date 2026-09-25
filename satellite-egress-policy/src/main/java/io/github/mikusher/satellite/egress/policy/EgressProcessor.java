@@ -1,5 +1,6 @@
 package io.github.mikusher.satellite.egress.policy;
 
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import io.github.mikusher.satellite.egress.SatelliteEntry;
 import io.github.mikusher.satellite.egress.SatelliteMap;
 
@@ -24,15 +25,15 @@ public final class EgressProcessor {
         this.tokenizer = tokenizer;
     }
 
-    public EgressReport process(SatelliteMap map, EgressContext context) {
-        Objects.requireNonNull(map, "map");
+    public EgressReport process(EgressEnvelope envelope, EgressContext context) {
+        Objects.requireNonNull(envelope, "envelope");
         Objects.requireNonNull(context, "context");
 
         Map<String, Object> output = new LinkedHashMap<String, Object>();
         List<EgressDecisionRecord> decisions = new ArrayList<EgressDecisionRecord>();
         List<PrivacyViolation> violations = new ArrayList<PrivacyViolation>();
 
-        for (SatelliteEntry<?> entry : map.entries()) {
+        for (SatelliteEntry<?> entry : envelope.entries()) {
             PolicyDecision decision = policyEngine.decide(context, entry);
             EgressAction action = decision.getAction();
             String reasonCode = decision.getCode();
@@ -72,6 +73,16 @@ public final class EgressProcessor {
         }
 
         return new EgressReport(output, decisions, violations);
+    }
+
+    /**
+     * @deprecated Use {@link #process(EgressEnvelope, EgressContext)}.
+     */
+    @Deprecated
+    public EgressReport process(SatelliteMap map, EgressContext context) {
+        return process(
+                Objects.requireNonNull(map, "map").asEgressEnvelope(),
+                context);
     }
 
     private static PrivacyViolation violation(SatelliteEntry<?> entry,

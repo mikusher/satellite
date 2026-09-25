@@ -1,21 +1,18 @@
 package io.github.mikusher.satellite.egress;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Immutable typed data envelope. It deliberately has no raw-map export API.
+ * @deprecated Use {@link EgressEnvelope}. SatelliteMap is kept as a
+ * compatibility facade for the pre-2.x foundation API.
  */
+@Deprecated
 public final class SatelliteMap {
-    private final Map<Key<?>, SatelliteEntry<?>> entries;
+    private final EgressEnvelope delegate;
 
-    private SatelliteMap(Map<Key<?>, SatelliteEntry<?>> entries) {
-        this.entries = Collections.unmodifiableMap(new LinkedHashMap<Key<?>, SatelliteEntry<?>>(entries));
+    private SatelliteMap(EgressEnvelope delegate) {
+        this.delegate = delegate;
     }
 
     public static Builder builder() {
@@ -23,66 +20,59 @@ public final class SatelliteMap {
     }
 
     public <T> T get(Key<T> key) {
-        SatelliteEntry<?> entry = entries.get(Objects.requireNonNull(key, "key"));
-        if (entry == null) {
-            return null;
-        }
-        return key.cast(entry.getValue());
+        return delegate.get(key);
     }
 
-    @SuppressWarnings("unchecked")
     public <T> Optional<SatelliteEntry<T>> entry(Key<T> key) {
-        Objects.requireNonNull(key, "key");
-        SatelliteEntry<?> value = entries.get(key);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of((SatelliteEntry<T>) value);
+        return delegate.entry(key);
     }
 
     public boolean contains(Key<?> key) {
-        return entries.containsKey(Objects.requireNonNull(key, "key"));
+        return delegate.contains(key);
     }
 
     public int size() {
-        return entries.size();
+        return delegate.size();
     }
 
     public Collection<SatelliteEntry<?>> entries() {
-        return Collections.unmodifiableList(new ArrayList<SatelliteEntry<?>>(entries.values()));
+        return delegate.entries();
+    }
+
+    /**
+     * Returns the new canonical representation without copying values.
+     */
+    public EgressEnvelope asEgressEnvelope() {
+        return delegate;
+    }
+
+    public static SatelliteMap fromEgressEnvelope(EgressEnvelope envelope) {
+        if (envelope == null) {
+            throw new NullPointerException("envelope");
+        }
+        return new SatelliteMap(envelope);
     }
 
     @Override
     public String toString() {
-        return "SatelliteMap{size=" + entries.size() + ", keys=" + entries.keySet() + '}';
+        return "SatelliteMap{delegate=" + delegate + '}';
     }
 
     public static final class Builder {
-        private final Map<Key<?>, SatelliteEntry<?>> entries = new LinkedHashMap<Key<?>, SatelliteEntry<?>>();
-        private final Map<String, Key<?>> keysByName = new LinkedHashMap<String, Key<?>>();
+        private final EgressEnvelope.Builder delegate = EgressEnvelope.builder();
 
         public <T> Builder put(Key<T> key, T value) {
-            return put(key, value, ValueMetadata.unknown());
+            delegate.put(key, value);
+            return this;
         }
 
         public <T> Builder put(Key<T> key, T value, ValueMetadata metadata) {
-            Objects.requireNonNull(key, "key");
-            Objects.requireNonNull(metadata, "metadata");
-
-            Key<?> existing = keysByName.get(key.getName());
-            if (existing != null && !existing.equals(key)) {
-                throw new IllegalArgumentException(
-                        "Conflicting key definition for external name '" + key.getName() + "'");
-            }
-
-            T safeValue = key.cast(value);
-            keysByName.put(key.getName(), key);
-            entries.put(key, new SatelliteEntry<T>(key, safeValue, metadata));
+            delegate.put(key, value, metadata);
             return this;
         }
 
         public SatelliteMap build() {
-            return new SatelliteMap(entries);
+            return new SatelliteMap(delegate.build());
         }
     }
 }

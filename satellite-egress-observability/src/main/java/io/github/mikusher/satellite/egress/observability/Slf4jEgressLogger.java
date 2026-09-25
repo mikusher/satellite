@@ -1,5 +1,6 @@
 package io.github.mikusher.satellite.egress.observability;
 
+import io.github.mikusher.satellite.egress.EgressEnvelope;
 import io.github.mikusher.satellite.egress.SatelliteMap;
 import io.github.mikusher.satellite.egress.policy.EgressContext;
 import io.github.mikusher.satellite.egress.policy.EgressProcessor;
@@ -11,7 +12,7 @@ import org.slf4j.Logger;
 import java.util.Objects;
 
 /**
- * SLF4J adapter that only logs policy-processed SatelliteMap values.
+ * SLF4J adapter that only logs policy-processed EgressEnvelope values.
  */
 public final class Slf4jEgressLogger {
     private final Logger logger;
@@ -30,7 +31,7 @@ public final class Slf4jEgressLogger {
         this.violationListener = Objects.requireNonNull(violationListener, "violationListener");
     }
 
-    public SafeLogEvent prepare(String message, SatelliteMap data, String purpose) {
+    public SafeLogEvent prepare(String message, EgressEnvelope data, String purpose) {
         EgressReport report = processor.process(
                 Objects.requireNonNull(data, "data"),
                 EgressContext.of(EgressSink.LOG, purpose));
@@ -42,33 +43,63 @@ public final class Slf4jEgressLogger {
         return new SafeLogEvent(SafeLogEncoder.encode(message, report.getOutput()), report);
     }
 
-    public void trace(String message, SatelliteMap data, String purpose) {
+    public void trace(String message, EgressEnvelope data, String purpose) {
         if (logger.isTraceEnabled()) {
             logger.trace(prepare(message, data, purpose).getLine());
         }
     }
 
-    public void debug(String message, SatelliteMap data, String purpose) {
+    public void debug(String message, EgressEnvelope data, String purpose) {
         if (logger.isDebugEnabled()) {
             logger.debug(prepare(message, data, purpose).getLine());
         }
     }
 
-    public void info(String message, SatelliteMap data, String purpose) {
+    public void info(String message, EgressEnvelope data, String purpose) {
         if (logger.isInfoEnabled()) {
             logger.info(prepare(message, data, purpose).getLine());
         }
     }
 
-    public void warn(String message, SatelliteMap data, String purpose) {
+    public void warn(String message, EgressEnvelope data, String purpose) {
         if (logger.isWarnEnabled()) {
             logger.warn(prepare(message, data, purpose).getLine());
         }
     }
 
-    public void error(String message, SatelliteMap data, String purpose) {
+    public void error(String message, EgressEnvelope data, String purpose) {
         if (logger.isErrorEnabled()) {
             logger.error(prepare(message, data, purpose).getLine());
         }
+    }
+
+    @Deprecated
+    public SafeLogEvent prepare(String message, SatelliteMap data, String purpose) {
+        return prepare(message, data.asEgressEnvelope(), purpose);
+    }
+
+    @Deprecated
+    public void trace(String message, SatelliteMap data, String purpose) {
+        trace(message, data.asEgressEnvelope(), purpose);
+    }
+
+    @Deprecated
+    public void debug(String message, SatelliteMap data, String purpose) {
+        debug(message, data.asEgressEnvelope(), purpose);
+    }
+
+    @Deprecated
+    public void info(String message, SatelliteMap data, String purpose) {
+        info(message, data.asEgressEnvelope(), purpose);
+    }
+
+    @Deprecated
+    public void warn(String message, SatelliteMap data, String purpose) {
+        warn(message, data.asEgressEnvelope(), purpose);
+    }
+
+    @Deprecated
+    public void error(String message, SatelliteMap data, String purpose) {
+        error(message, data.asEgressEnvelope(), purpose);
     }
 }

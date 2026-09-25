@@ -45,12 +45,12 @@ public final class SatelliteSchema {
         return allowUnknownKeys;
     }
 
-    public ValidationResult validate(SatelliteMap map) {
-        Objects.requireNonNull(map, "map");
+    public ValidationResult validate(EgressEnvelope envelope) {
+        Objects.requireNonNull(envelope, "envelope");
         ArrayList<ValidationError> errors = new ArrayList<ValidationError>();
 
         for (Key<?> key : requiredKeys) {
-            if (!map.contains(key) || !hasNonNullValue(map, key)) {
+            if (!envelope.contains(key) || !hasNonNullValue(envelope, key)) {
                 errors.add(new ValidationError(
                         "REQUIRED_VALUE_MISSING",
                         key.getName(),
@@ -59,7 +59,7 @@ public final class SatelliteSchema {
         }
 
         if (!allowUnknownKeys) {
-            Collection<SatelliteEntry<?>> entries = map.entries();
+            Collection<SatelliteEntry<?>> entries = envelope.entries();
             for (SatelliteEntry<?> entry : entries) {
                 if (!knownKeys.contains(entry.getKey())) {
                     errors.add(new ValidationError(
@@ -73,8 +73,16 @@ public final class SatelliteSchema {
         return new ValidationResult(errors);
     }
 
-    private static <T> boolean hasNonNullValue(SatelliteMap map, Key<T> key) {
-        return map.entry(key).map(entry -> entry.getValue() != null).orElse(false);
+    /**
+     * @deprecated Use {@link #validate(EgressEnvelope)}.
+     */
+    @Deprecated
+    public ValidationResult validate(SatelliteMap map) {
+        return validate(Objects.requireNonNull(map, "map").asEgressEnvelope());
+    }
+
+    private static <T> boolean hasNonNullValue(EgressEnvelope envelope, Key<T> key) {
+        return envelope.entry(key).map(entry -> entry.getValue() != null).orElse(false);
     }
 
     public static final class Builder {
