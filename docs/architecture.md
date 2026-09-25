@@ -1,44 +1,104 @@
 # Satellite architecture
 
-Satellite 2.x separates the legacy compatibility surface from a new security-aware egress model.
+Satellite 2.x separates dynamic application data from security-aware egress enforcement.
 
 ## Dependency direction
 
 ```text
-satellite-egress-core
-        |
-        v
-satellite-egress-policy
-   |        |        |
-   v        v        v
-slf4j    jackson   opentelemetry
-
-satellite-parametermap ---> satellite-parametermap-egress-bridge
-                                   |
-                                   +----> egress-core + egress-policy
-
-satellite-legacy-logging ---> satellite-parametermap
+satellite-data                         satellite-egress-core
+      |                                        |
+      |                                satellite-egress-policy
+      |                                  |        |        |
+      |                                  v        v        v
+      |                                slf4j    jackson   opentelemetry
+      |
+      +------> satellite-data-egress-bridge <----+
 ```
 
-The core has no dependency on SLF4J, Jackson, OpenTelemetry, Spring or a logging backend.
+Compatibility artifacts:
 
-## Data model
+```text
+satellite-parametermap
+        |
+        v
+satellite-data
 
-A `Key<T>` owns static semantics: external name, Java type, classification and data categories. A `SatelliteEntry<T>` pairs the key/value with runtime metadata such as origin and trust level. `SatelliteMap` is immutable after construction and deliberately exposes no raw `Map<String,Object>` export.
+satellite-parametermap-egress-bridge
+        |
+        v
+satellite-data-egress-bridge
+```
 
-Duplicate external key names with conflicting definitions are rejected. This prevents a second key definition from downgrading the classification of a protected field before egress.
+`satellite-legacy-logging` remains isolated from the new Egress model.
+
+The build contains an architecture check that fails if Satellite Data starts depending on Egress or Egress starts depending on Satellite Data.
+
+## Satellite Data
+
+`SatelliteData` is the primary dynamic-data API. It provides typed retrieval, conversion helpers, nested data and PMAP/XML interoperability.
+
+`DataDefinition` optionally adds allowed fields, types, required values and defaults.
+
+The legacy names `ParameterMap` and `ParameterInfoMap` remain deprecated compatibility APIs.
+
+## Egress model
+
+A `Key<T>` owns static semantics:
+
+- external name;
+- Java type;
+- data classification;
+- data categories;
+- required/optional schema metadata.
+
+`ValueMetadata` owns runtime semantics:
+
+- origin;
+- trust level.
+
+`EgressEnvelope` combines typed values with this metadata. It is immutable after construction and deliberately exposes no raw `Map<String,Object>` export.
+
+The old `SatelliteMap` name remains as a deprecated compatibility facade.
 
 ## Egress boundary
 
 Every supported sink follows the same sequence:
 
-1. application creates or bridges a `SatelliteMap`;
-2. `EgressPolicyEngine` evaluates each entry against an `EgressContext`;
-3. `EgressProcessor` applies `ALLOW`, `REDACT`, `TOKENIZE` or `DENY`;
-4. the sink adapter receives only `EgressReport.getOutput()`;
-5. denied operations are represented as metadata-only `PrivacyViolation` records.
+```text
+EgressEnvelope
+      |
+      v
+EgressPolicyEngine
+      |
+      v
+ALLOW / REDACT / TOKENIZE / DENY
+      |
+      v
+EgressReport
+      |
+      v
+approved sink adapter
+```
 
-The engine denies when no rule returns a decision. `DefaultEgressRule` provides conservative baseline behavior, while explicit application rules can be placed before it.
+Denied values never enter `EgressReport.getOutput()`.
+
+## Policy model
+
+Rules are ordered and all configured matchers must match.
+
+Positive decisions (`ALLOW` and `TOKENIZE`) require both a sink and a purpose. This prevents accidental global allow rules.
+
+Non-bypassable observability guardrails prevent confidential, restricted, secret, credential and privacy-sensitive data from being emitted raw to logs, traces, metrics or audit sinks.
+
+If redaction or tokenization fails, the processor converts the operation to `DENY`.
+
+## Bridge
+
+`SatelliteDataEgressBridge` is the only primary integration point allowed to know both Satellite Data and Egress.
+
+Strict conversion rejects every `SatelliteData` field without an explicit `Key<?>`.
+
+Lenient conversion is an explicit migration option and reports ignored field names.
 
 ## Threat model
 
@@ -47,29 +107,35 @@ The current design directly addresses:
 - accidental secret/credential logging;
 - accidental PII propagation to observability;
 - generic serialization of internal/restricted values;
-- unclassified fields during legacy `ParameterMap` migration;
-- classification downgrade via duplicate external key names;
-- log injection via control characters in the SLF4J adapter;
-- deterministic pseudonymization without unsalted hashes;
+- unclassified dynamic fields at the egress boundary;
+- classification downgrade through duplicate external names;
+- log injection through control characters;
+- deterministic pseudonymization without plain hashes;
 - XML external entity/DTD processing;
-- PMAP parser resource exhaustion through bounded depth, input, entries, collections and text.
+- PMAP parser resource exhaustion.
 
 It does **not** claim full taint tracking, data-flow analysis, consent management, DLP replacement or regulatory compliance certification.
 
-## Policy design
+## Optional adapters
 
-Rules are ordered. A narrow explicit rule may authorize a specific key/sink use case; the default rule should remain last. This keeps exceptions reviewable and prevents a global permissive switch.
+Integration modules are separate so applications only pay for what they use.
 
-A `purpose` string is mandatory in `EgressContext`. It is descriptive context today and is intentionally available for future purpose-aware policies without changing sink APIs.
+- SLF4J adapter: API dependency only, no forced logging backend.
+- Jackson adapter: policy-enforced JSON and JSON Schema 2020-12 interoperability.
+- OpenTelemetry adapter: policy-enforced span attributes.
 
-## Serialization and observability
+## Compatibility
 
-Adapters are separate Maven modules so applications pay only for integrations they use. The new SLF4J adapter depends on the API only, not Logback or Log4j. Jackson and OpenTelemetry are likewise optional.
+Satellite 2.x provides migration aliases:
 
-## Legacy compatibility
+```text
+ParameterMap      -> SatelliteData
+ParameterInfoMap  -> DataDefinition
+SatelliteMap      -> EgressEnvelope
+```
 
-`satellite-parametermap` remains the compatibility module for the original dynamic map and PMAP format. `satellite-legacy-logging` isolates the old logger and its historical dependencies. The strict bridge is the intended migration path into the egress model.
+The old Maven artifact names are compatibility artifacts that point to the new modules.
 
 ## Release safety
 
-The reactor is tested on Java 11, 17 and 21. Publishing is release/manual only and refuses `-SNAPSHOT` versions. CodeQL, dependency review and CycloneDX SBOM generation are part of the repository hardening.
+The reactor is tested on Java 11, 17 and 21. CodeQL, CycloneDX SBOM generation, dependency checks and guarded release publishing are part of the repository hardening.
