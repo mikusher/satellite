@@ -8,7 +8,7 @@ import static org.junit.Assert.assertTrue;
 public class SatelliteDataTest {
 
     @Test
-    public void providesTheParameterMapBehaviorUnderTheNewName() {
+    public void providesTheParameterMapBehaviorUnderTheNewName() throws Exception {
         SatelliteData data = new SatelliteData();
         data.put("caseNumber", "C12.12343");
         data.put("retry", 3);
@@ -18,7 +18,7 @@ public class SatelliteDataTest {
     }
 
     @Test
-    public void cloneKeepsTheNewType() {
+    public void cloneKeepsTheNewType() throws Exception {
         SatelliteData data = new SatelliteData();
         data.put("value", "satellite");
 
