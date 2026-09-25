@@ -17,7 +17,9 @@ public class StreamedPMapParserDataApiTest {
                 + "<m n=\"nested\"><s n=\"id\">42</s></m>"
                 + "</m>";
 
-        StreamedPMapParser parser = new StreamedPMapParser();
+        StreamedPMapParser parser =
+                new StreamedPMapParser(PMapParserLimits.defaults());
+
         SatelliteData data = parser.getData(
                 new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
 
