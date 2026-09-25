@@ -13,6 +13,7 @@
   <url>https://github.com/mikusher/satellite</url>
 
   <modules>
+    <module>satellite-data</module>
     <module>satellite-parametermap</module>
     <module>satellite-legacy-logging</module>
     <module>satellite-egress-core</module>
@@ -20,6 +21,7 @@
     <module>satellite-egress-observability</module>
     <module>satellite-egress-jackson</module>
     <module>satellite-egress-opentelemetry</module>
+    <module>satellite-data-egress-bridge</module>
     <module>satellite-parametermap-egress-bridge</module>
   </modules>
 
@@ -53,9 +55,7 @@
           <execution>
             <id>aggregate-sbom</id>
             <phase>verify</phase>
-            <goals>
-              <goal>makeAggregateBom</goal>
-            </goals>
+            <goals><goal>makeAggregateBom</goal></goals>
           </execution>
         </executions>
         <configuration>

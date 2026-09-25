@@ -8,8 +8,10 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 
-PARAMETERMAP = "satellite-parametermap"
-BRIDGE = "satellite-parametermap-egress-bridge"
+DATA = "satellite-data"
+DATA_COMPAT = "satellite-parametermap"
+BRIDGE = "satellite-data-egress-bridge"
+BRIDGE_COMPAT = "satellite-parametermap-egress-bridge"
 LEGACY_LOGGING = "satellite-legacy-logging"
 EGRESS_MODULES = {
     "satellite-egress-core",
@@ -45,25 +47,24 @@ def scan_imports(module: str, banned_prefixes):
                 )
 
 
-# ParameterMap stays fully independent from Egress.
-for group, artifact in dependencies(PARAMETERMAP):
+# Satellite Data stays fully independent from Egress.
+for group, artifact in dependencies(DATA):
     if group == "io.github.mikusher" and (
         artifact.startswith("satellite-egress-")
-        or artifact == BRIDGE
-        or artifact == LEGACY_LOGGING
+        or artifact in {BRIDGE, BRIDGE_COMPAT, LEGACY_LOGGING}
     ):
-        errors.append(
-            f"{PARAMETERMAP} must not depend on {group}:{artifact}"
-        )
+        errors.append(f"{DATA} must not depend on {group}:{artifact}")
 
-scan_imports(PARAMETERMAP, ["io.github.mikusher.satellite.egress"])
+scan_imports(DATA, ["io.github.mikusher.satellite.egress"])
 
-# Egress never knows ParameterMap or the optional bridge.
+# Egress never knows Satellite Data, compatibility artifacts or bridges.
 for module in sorted(EGRESS_MODULES):
     for group, artifact in dependencies(module):
         if group == "io.github.mikusher" and artifact in {
-            PARAMETERMAP,
+            DATA,
+            DATA_COMPAT,
             BRIDGE,
+            BRIDGE_COMPAT,
             LEGACY_LOGGING,
         }:
             errors.append(f"{module} must not depend on {group}:{artifact}")
@@ -73,23 +74,29 @@ for module in sorted(EGRESS_MODULES):
 # Legacy logging remains isolated from the new Egress product line.
 for group, artifact in dependencies(LEGACY_LOGGING):
     if group == "io.github.mikusher" and (
-        artifact.startswith("satellite-egress-") or artifact == BRIDGE
+        artifact.startswith("satellite-egress-")
+        or artifact in {BRIDGE, BRIDGE_COMPAT}
     ):
-        errors.append(
-            f"{LEGACY_LOGGING} must not depend on {group}:{artifact}"
-        )
+        errors.append(f"{LEGACY_LOGGING} must not depend on {group}:{artifact}")
 
 scan_imports(LEGACY_LOGGING, ["io.github.mikusher.satellite.egress"])
 
-# The bridge is the only module intentionally allowed to reference both sides.
+# The new bridge is the only primary module intentionally allowed to know both sides.
 bridge_dependencies = set(dependencies(BRIDGE))
-required_bridge_dependencies = {
-    ("io.github.mikusher", PARAMETERMAP),
+for required in {
+    ("io.github.mikusher", DATA),
     ("io.github.mikusher", "satellite-egress-core"),
-}
-missing = required_bridge_dependencies - bridge_dependencies
-for group, artifact in sorted(missing):
-    errors.append(f"{BRIDGE} is missing required dependency {group}:{artifact}")
+}:
+    if required not in bridge_dependencies:
+        errors.append(f"{BRIDGE} is missing required dependency {required[0]}:{required[1]}")
+
+# Compatibility artifacts should only point forward to the new names.
+if ("io.github.mikusher", DATA) not in set(dependencies(DATA_COMPAT)):
+    errors.append(f"{DATA_COMPAT} must depend on {DATA}")
+
+bridge_compat_dependencies = set(dependencies(BRIDGE_COMPAT))
+if ("io.github.mikusher", BRIDGE) not in bridge_compat_dependencies:
+    errors.append(f"{BRIDGE_COMPAT} must depend on {BRIDGE}")
 
 if errors:
     print("Satellite architecture boundary violations:", file=sys.stderr)
