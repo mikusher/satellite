@@ -23,6 +23,12 @@ public final class JacksonEgressSerializer {
         this.processor = Objects.requireNonNull(processor, "processor");
     }
 
+    public static JacksonEgressSerializer secure(ObjectMapper objectMapper) {
+        return new JacksonEgressSerializer(
+                objectMapper,
+                EgressProcessor.secureDefaults());
+    }
+
     public JacksonEgressResult toJsonNode(EgressEnvelope envelope, String purpose) {
         EgressReport report = processor.process(
                 Objects.requireNonNull(envelope, "envelope"),

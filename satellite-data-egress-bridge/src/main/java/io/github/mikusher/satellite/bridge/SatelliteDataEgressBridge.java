@@ -1,8 +1,12 @@
 package io.github.mikusher.satellite.bridge;
 
 import com.mikusher.parameter.SatelliteData;
+import io.github.mikusher.satellite.egress.DataOrigin;
 import io.github.mikusher.satellite.egress.EgressEnvelope;
 import io.github.mikusher.satellite.egress.Key;
+import io.github.mikusher.satellite.egress.SatelliteSchema;
+import io.github.mikusher.satellite.egress.TrustLevel;
+import io.github.mikusher.satellite.egress.ValidationResult;
 import io.github.mikusher.satellite.egress.ValueMetadata;
 import io.github.mikusher.satellite.egress.policy.EgressReport;
 
@@ -29,6 +33,35 @@ public final class SatelliteDataEgressBridge {
         return convert(source, keys, metadata, true);
     }
 
+    public static DataBridgeResult toEnvelope(SatelliteData source,
+                                              Collection<Key<?>> keys,
+                                              DataOrigin origin,
+                                              TrustLevel trustLevel) {
+        return toEnvelope(
+                source,
+                keys,
+                ValueMetadata.of(origin, trustLevel));
+    }
+
+    public static DataBridgeResult toEnvelope(SatelliteData source,
+                                              SatelliteSchema schema,
+                                              ValueMetadata metadata) {
+        Objects.requireNonNull(schema, "schema");
+        DataBridgeResult result = toEnvelope(source, schema.getKnownKeys(), metadata);
+        validateSchema(schema, result);
+        return result;
+    }
+
+    public static DataBridgeResult toEnvelope(SatelliteData source,
+                                              SatelliteSchema schema,
+                                              DataOrigin origin,
+                                              TrustLevel trustLevel) {
+        return toEnvelope(
+                source,
+                schema,
+                ValueMetadata.of(origin, trustLevel));
+    }
+
     /**
      * Migration-only mode where unclassified fields are explicitly ignored and reported.
      */
@@ -36,6 +69,38 @@ public final class SatelliteDataEgressBridge {
                                                      Collection<Key<?>> keys,
                                                      ValueMetadata metadata) {
         return convert(source, keys, metadata, false);
+    }
+
+    public static DataBridgeResult toEnvelopeLenient(SatelliteData source,
+                                                     Collection<Key<?>> keys,
+                                                     DataOrigin origin,
+                                                     TrustLevel trustLevel) {
+        return toEnvelopeLenient(
+                source,
+                keys,
+                ValueMetadata.of(origin, trustLevel));
+    }
+
+    public static DataBridgeResult toEnvelopeLenient(SatelliteData source,
+                                                     SatelliteSchema schema,
+                                                     ValueMetadata metadata) {
+        Objects.requireNonNull(schema, "schema");
+        DataBridgeResult result = toEnvelopeLenient(
+                source,
+                schema.getKnownKeys(),
+                metadata);
+        validateSchema(schema, result);
+        return result;
+    }
+
+    public static DataBridgeResult toEnvelopeLenient(SatelliteData source,
+                                                     SatelliteSchema schema,
+                                                     DataOrigin origin,
+                                                     TrustLevel trustLevel) {
+        return toEnvelopeLenient(
+                source,
+                schema,
+                ValueMetadata.of(origin, trustLevel));
     }
 
     /**
@@ -82,6 +147,18 @@ public final class SatelliteDataEgressBridge {
         }
 
         return new DataBridgeResult(builder.build(), ignored);
+    }
+
+    private static void validateSchema(SatelliteSchema schema,
+                                       DataBridgeResult result) {
+        ValidationResult validation = schema.validate(result.getEnvelope());
+        if (!validation.isValid()) {
+            throw new IllegalArgumentException(
+                    "SatelliteData does not satisfy schema '"
+                            + schema.getName()
+                            + "': "
+                            + validation.getErrors());
+        }
     }
 
     private static <T> void putCaptured(EgressEnvelope.Builder builder,
