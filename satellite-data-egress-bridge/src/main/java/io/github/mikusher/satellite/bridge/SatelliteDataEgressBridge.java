@@ -6,6 +6,7 @@ import io.github.mikusher.satellite.egress.EgressEnvelope;
 import io.github.mikusher.satellite.egress.Key;
 import io.github.mikusher.satellite.egress.SatelliteSchema;
 import io.github.mikusher.satellite.egress.TrustLevel;
+import io.github.mikusher.satellite.egress.ValidationResult;
 import io.github.mikusher.satellite.egress.ValueMetadata;
 import io.github.mikusher.satellite.egress.policy.EgressReport;
 
@@ -46,7 +47,9 @@ public final class SatelliteDataEgressBridge {
                                               SatelliteSchema schema,
                                               ValueMetadata metadata) {
         Objects.requireNonNull(schema, "schema");
-        return toEnvelope(source, schema.getKnownKeys(), metadata);
+        DataBridgeResult result = toEnvelope(source, schema.getKnownKeys(), metadata);
+        validateSchema(schema, result);
+        return result;
     }
 
     public static DataBridgeResult toEnvelope(SatelliteData source,
@@ -82,7 +85,12 @@ public final class SatelliteDataEgressBridge {
                                                      SatelliteSchema schema,
                                                      ValueMetadata metadata) {
         Objects.requireNonNull(schema, "schema");
-        return toEnvelopeLenient(source, schema.getKnownKeys(), metadata);
+        DataBridgeResult result = toEnvelopeLenient(
+                source,
+                schema.getKnownKeys(),
+                metadata);
+        validateSchema(schema, result);
+        return result;
     }
 
     public static DataBridgeResult toEnvelopeLenient(SatelliteData source,
@@ -139,6 +147,18 @@ public final class SatelliteDataEgressBridge {
         }
 
         return new DataBridgeResult(builder.build(), ignored);
+    }
+
+    private static void validateSchema(SatelliteSchema schema,
+                                       DataBridgeResult result) {
+        ValidationResult validation = schema.validate(result.getEnvelope());
+        if (!validation.isValid()) {
+            throw new IllegalArgumentException(
+                    "SatelliteData does not satisfy schema '"
+                            + schema.getName()
+                            + "': "
+                            + validation.getErrors());
+        }
     }
 
     private static <T> void putCaptured(EgressEnvelope.Builder builder,

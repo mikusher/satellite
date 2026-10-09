@@ -51,6 +51,24 @@ public class SatelliteDataEgressBridgeErgonomicsTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
+    public void schemaOverloadRejectsMissingRequiredFields() {
+        Key<String> required = Key.string("required")
+                .classifiedAs(DataClassification.PUBLIC);
+
+        SatelliteSchema schema = SatelliteSchema.builder("Required")
+                .required(required)
+                .build();
+
+        SatelliteData data = new SatelliteData();
+
+        SatelliteDataEgressBridge.toEnvelope(
+                data,
+                schema,
+                DataOrigin.APPLICATION,
+                TrustLevel.VALIDATED);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
     public void schemaOverloadRemainsStrictForUnknownFields() {
         Key<String> known = Key.string("known")
                 .classifiedAs(DataClassification.PUBLIC);
