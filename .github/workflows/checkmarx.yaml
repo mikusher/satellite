@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Checkmarx AST scan
-        uses: checkmarx/ast-github-action@2.3.42
+        uses: checkmarx/ast-github-action@2.3.45
         with:
           project_name: satellite
           cx_tenant: internal_check
