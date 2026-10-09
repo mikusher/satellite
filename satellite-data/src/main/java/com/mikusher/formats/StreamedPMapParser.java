@@ -1,0 +1,1147 @@
+package com.mikusher.formats;
+
+
+import com.google.common.collect.Maps;
+import com.mikusher.error.CoreError;
+import com.mikusher.error.CoreException;
+import com.mikusher.error.SatelliteException;
+import com.mikusher.parameter.PMapType;
+import com.mikusher.parameter.SatelliteData;
+import com.mikusher.parameter.SatelliteDataUtils;
+import com.mikusher.utils.PMapReadPlugin;
+import com.mikusher.utils.StaxUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.w3c.dom.Document;
+import org.w3c.dom.DocumentFragment;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.*;
+import java.io.*;
+import java.lang.ref.WeakReference;
+import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.nio.file.Path;
+import java.text.ParseException;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.function.IntFunction;
+
+public class StreamedPMapParser {
+
+
+    public static final String ATT_NAME_SHORT = "n";
+    static final String ATT_TYPE = "type";
+    static final String ENCODING = "UTF-8";
+    static final String VERSION = "1.0";
+    private static final String TAG_PARAMETER = "parameter";
+    private static final String ATT_NAME = "name";
+    private static final DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
+    private static final Charset CHARSET = Charset.forName(ENCODING);
+    private static final ThreadLocal<StreamedPMapParser> _threadLocalData = ThreadLocal.withInitial(StreamedPMapParser::new);
+    private static final int MAX_INDENT_LEVEL_CACHE = 256;
+    @SuppressWarnings("unchecked")
+    private static final WeakReference<String>[] _indentCache = new WeakReference[MAX_INDENT_LEVEL_CACHE];
+    private static final IntFunction<String> INDENT_STRING_GENERATOR = i -> "\n"
+            + StringUtils.repeat('\t', i);
+    private final PMapParserLimits _limits;
+    private final Map<String, PMapReadPlugin> _plugins;
+
+    private static XMLInputFactory createXmlInputFactory() {
+
+        XMLInputFactory factory = XMLInputFactory.newInstance();
+        factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
+        factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
+        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> {
+            throw new XMLStreamException("External XML entities are disabled");
+        });
+        return factory;
+    }
+
+    private StreamedPMapParser() {
+
+        this(PMapParserLimits.defaults(), null);
+    }
+
+    public StreamedPMapParser(PMapParserLimits limits) {
+
+        this(limits, null);
+    }
+
+    public StreamedPMapParser(PMapReadPlugin[] plugins) {
+
+        this(PMapParserLimits.defaults(), plugins);
+    }
+
+    public StreamedPMapParser(PMapParserLimits limits, PMapReadPlugin[] plugins) {
+
+        _limits = Objects.requireNonNull(limits, "limits");
+
+        if (plugins == null || plugins.length == 0) {
+            _plugins = Collections.emptyMap();
+        } else {
+            Map<String, PMapReadPlugin> configuredPlugins =
+                    Maps.newHashMapWithExpectedSize(plugins.length);
+            for (PMapReadPlugin plugin : plugins) {
+                for (String tagName : plugin.getSupportedTags()) {
+                    configuredPlugins.put(tagName, plugin);
+                }
+            }
+            _plugins = Collections.unmodifiableMap(configuredPlugins);
+        }
+    }
+
+    public static StreamedPMapParser getInstance() {
+
+        return _threadLocalData.get();
+    }
+
+    public static void clearCachedInstance() {
+
+        _threadLocalData.remove();
+    }
+
+    private static void nextStartElement(XMLStreamReader reader) throws XMLStreamException {
+
+        // Bypass initial elements till we get to start element
+        do {
+            reader.next();
+        } while (reader.getEventType() != XMLStreamReader.START_ELEMENT);
+    }
+
+    private static void indentLevel(SerializationType serType, XMLStreamWriter writer, int level)
+            throws XMLStreamException {
+
+        if (!serType.ident()) {
+            return;
+        }
+
+        writer.writeCharacters(getIndentLevelFromCache(level));
+    }
+
+    private static String getIndentLevelFromCache(int level) {
+
+        if (level >= MAX_INDENT_LEVEL_CACHE) {
+            return INDENT_STRING_GENERATOR.apply(level);
+        }
+
+        WeakReference<String> container = _indentCache[level];
+        String value = container == null ? null : container.get();
+        if (value == null) {
+            value = INDENT_STRING_GENERATOR.apply(level);
+            _indentCache[level] = new WeakReference<>(value);
+        }
+
+        return value;
+    }
+
+    private static void closeQuietly(XMLStreamReader value) {
+
+        try {
+            value.close();
+        } catch (XMLStreamException e) {
+        }
+    }
+
+    private static void closeQuietly(XMLStreamWriter value) {
+
+        try {
+            value.close();
+        } catch (XMLStreamException e) {
+        }
+    }
+
+    public static boolean isLeaf(XMLStreamReader xmlStreamReader, PMapType pMapType) {
+
+        return pMapType != null && xmlStreamReader.isStartElement() && !pMapType.equals(PMapType.ARRAY)
+                && !pMapType.equals(PMapType.MAP);
+    }
+
+    /**
+     * return a subTree inside array(XMLStreamReader) representation that match with tagType and keyValues
+     *
+     * @param xmlStreamReader
+     * @param tagType         (XML tag name)
+     * @param keyValues       (relation : XML attributes and values)
+     * @return
+     * @throws XMLStreamException
+     */
+    public static XMLStreamReader getXMLTreeByArray(XMLStreamReader xmlStreamReader, PMapType tagType,
+                                                    SatelliteData keyValues)
+            throws XMLStreamException {
+
+        XMLStreamReader result = null;
+
+        do {
+            xmlStreamReader.next();
+            if (xmlStreamReader.isStartElement()) {
+                result = getXMLTreeByTree(xmlStreamReader, tagType, keyValues);
+            }
+        } while (xmlStreamReader.hasNext() && !xmlStreamReader.isEndElement()
+                && xmlStreamReader.getEventType() != XMLStreamConstants.END_DOCUMENT && result == null);
+
+        return result;
+    }
+
+    /**
+     * return a subTree inside Map(XMLStreamReader) representation that match with tagType and keyValues
+     *
+     * @param xmlStreamReader
+     * @param tagType         (XML tag name)
+     * @param keyValues       (relation : XML attributes and values)
+     * @return
+     * @throws XMLStreamException
+     */
+    public static XMLStreamReader getXMLTreeByMap(XMLStreamReader xmlStreamReader, PMapType tagType,
+                                                  SatelliteData keyValues)
+            throws XMLStreamException {
+
+        XMLStreamReader result = null;
+        do {
+            xmlStreamReader.next();
+            if (xmlStreamReader.isStartElement()) {
+                result = getXMLTreeByTree(xmlStreamReader, tagType, keyValues);
+            }
+        } while (xmlStreamReader.hasNext() && !xmlStreamReader.isEndElement()
+                && xmlStreamReader.getEventType() != XMLStreamConstants.END_DOCUMENT && result == null);
+
+        return result;
+    }
+
+    /**
+     * predicate to check if a XML Tree match with given tagType and attribute values (keyValues)
+     *
+     * @param xmlStreamReader
+     * @param tagType
+     * @param keyValues
+     * @return
+     */
+    public static boolean matchXMLTree(XMLStreamReader xmlStreamReader, PMapType tagType, SatelliteData keyValues) {
+
+        boolean result = false;
+        if (xmlStreamReader.isStartElement() && PMapType.lookup(xmlStreamReader.getLocalName()).equals(tagType)
+                && !keyValues.isEmpty()) {
+            Iterator<String> keySetI = keyValues.keySet().iterator();
+            do {
+                String key = keySetI.next();
+                String value = SatelliteDataUtils.getString(key, keyValues);
+                String xmlValue = xmlStreamReader.getAttributeValue(null, key);
+                result = xmlValue != null && xmlValue.equals(value);
+            } while (keySetI.hasNext() && result);
+
+        }
+
+        return result;
+    }
+
+    public static XMLStreamReader nextBrother(XMLStreamReader xmlStreamReader) throws XMLStreamException {
+
+        if (xmlStreamReader.isStartElement()) {
+
+            int control = 1;
+
+            while (!(control == 0 && xmlStreamReader.isEndElement())) {
+                xmlStreamReader.next();
+                if (xmlStreamReader.isStartElement()) {
+                    control++;
+                } else if (xmlStreamReader.isEndElement()) {
+                    control--;
+                }
+            }
+        }
+
+        int eventType = xmlStreamReader.getEventType();
+        if (eventType != XMLStreamConstants.END_DOCUMENT) {
+            do {
+                eventType = xmlStreamReader.next();
+            } while (!xmlStreamReader.isStartElement() && eventType != XMLStreamConstants.END_DOCUMENT);
+        }
+
+        return xmlStreamReader;
+    }
+
+    public static XMLStreamReader getXMLTreeByTree(XMLStreamReader xmlStreamReader, PMapType tagType,
+                                                   SatelliteData keyValues)
+            throws XMLStreamException {
+
+        XMLStreamReader result = null;
+
+        if (xmlStreamReader.isStartElement()) {
+
+            if (matchXMLTree(xmlStreamReader, tagType, keyValues)) {
+                result = xmlStreamReader;
+            } else {
+                String name = xmlStreamReader.getName().toString();
+                PMapType pMapType = PMapType.lookup(name);
+
+                if (pMapType.equals(PMapType.ARRAY)) {
+                    result = getXMLTreeByArray(xmlStreamReader, tagType, keyValues);
+                } else if (pMapType.equals(PMapType.MAP)) {
+                    result = getXMLTreeByMap(xmlStreamReader, tagType, keyValues);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    public static XMLStreamReader getXMLTreeByDocument(XMLStreamReader xmlStreamReaderDoc, PMapType tagType,
+                                                       SatelliteData keyValues)
+            throws XMLStreamException {
+
+        XMLStreamReader result = null;
+
+        if (xmlStreamReaderDoc.getEventType() == XMLStreamConstants.START_DOCUMENT) {
+            xmlStreamReaderDoc.next();
+
+            result = getXMLTreeByTree(xmlStreamReaderDoc, tagType, keyValues);
+        }
+
+        return result;
+    }
+
+    public static XMLStreamReader getFirstElementByArray(XMLStreamReader xmlStreamReaderArray)
+            throws XMLStreamException {
+
+        PMapType pMapType = PMapType.lookup(xmlStreamReaderArray.getLocalName());
+
+        if (xmlStreamReaderArray.isStartElement() && pMapType.equals(PMapType.ARRAY)) {
+            int eventType = xmlStreamReaderArray.getEventType();
+            do {
+                xmlStreamReaderArray.next();
+                eventType = xmlStreamReaderArray.getEventType();
+            } while (!xmlStreamReaderArray.isStartElement() && eventType != XMLStreamConstants.END_DOCUMENT
+                    && !xmlStreamReaderArray.isEndElement());
+        }
+        return xmlStreamReaderArray;
+    }
+
+    public static XMLStreamReader getElementByArray(XMLStreamReader xmlStreamReaderArray, int n)
+            throws XMLStreamException {
+
+        PMapType pMapType = PMapType.lookup(xmlStreamReaderArray.getLocalName());
+
+        xmlStreamReaderArray = getFirstElementByArray(xmlStreamReaderArray);
+
+        if (xmlStreamReaderArray != null && xmlStreamReaderArray.isStartElement() && pMapType.equals(PMapType.ARRAY)
+                && n > 0) {
+            int i = 0;
+            while (i < n && !xmlStreamReaderArray.isEndElement()) {
+                xmlStreamReaderArray = nextBrother(xmlStreamReaderArray);
+                i++;
+            }
+        }
+
+        return xmlStreamReaderArray;
+    }
+
+    public static XMLStreamReader getFirstElementByMap(XMLStreamReader xmlStreamReaderArray) throws XMLStreamException {
+
+        PMapType pMapType = PMapType.lookup(xmlStreamReaderArray.getLocalName());
+
+        if (xmlStreamReaderArray.isStartElement() && pMapType.equals(PMapType.MAP)) {
+            int eventType;
+            do {
+                xmlStreamReaderArray.next();
+                eventType = xmlStreamReaderArray.getEventType();
+            } while (!xmlStreamReaderArray.isStartElement() && eventType != XMLStreamConstants.END_DOCUMENT
+                    && !xmlStreamReaderArray.isEndElement());
+        }
+        return xmlStreamReaderArray;
+    }
+
+    public SatelliteData getDataFromFile(String fileName) throws XMLStreamException, IOException {
+
+        return getData(new File(fileName));
+    }
+
+    public SatelliteData getData(File file) throws XMLStreamException, IOException {
+
+        try (Reader reader = new BufferedReader(new FileReader(file), 8192)) {
+            return getData(reader);
+        }
+    }
+
+    public SatelliteData getData(Path path) throws XMLStreamException, IOException {
+
+        try (InputStream is = path.toUri().toURL().openStream()) {
+            return getData(is);
+        }
+    }
+
+    public SatelliteData getData(Reader reader) throws XMLStreamException {
+
+        XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
+                new LimitedReader(reader, _limits.getMaxInputCharacters()));
+        try {
+            nextStartElement(r);
+            return getData(r);
+        } finally {
+            closeQuietly(r);
+        }
+    }
+
+    public SatelliteData getData(InputStream is) throws XMLStreamException {
+
+        if (is == null) {
+            return null;
+        }
+
+        XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
+                new LimitedInputStream(is, _limits.getMaxInputBytes()));
+        try {
+            nextStartElement(r);
+            return getData(r);
+        } finally {
+            closeQuietly(r);
+        }
+    }
+
+    public SatelliteData getData(XMLStreamReader reader) throws XMLStreamException {
+
+        reader.next();
+
+        Map<String, Object> data = new HashMap<>();
+        readMap(reader, data, 1, new ParseBudget(_limits));
+
+        return new SatelliteData(data);
+    }
+
+        public void readMap(XMLStreamReader reader, Map<String, Object> map) throws XMLStreamException {
+
+        readMap(reader, map, 1, new ParseBudget(_limits));
+    }
+
+    private void readMap(XMLStreamReader reader,
+                         Map<String, Object> map,
+                         int depth,
+                         ParseBudget budget) throws XMLStreamException {
+
+        budget.checkDepth(depth);
+
+        while (reader.hasNext()) {
+
+            if (reader.getEventType() == XMLStreamReader.START_ELEMENT) {
+                if (map.size() >= _limits.getMaxCollectionSize()) {
+                    throw new XMLStreamException("PMAP collection size limit exceeded");
+                }
+                readParam(reader, map, depth, budget);
+            } else if (reader.getEventType() == XMLStreamReader.END_ELEMENT) {
+                break;
+            } else {
+                reader.nextTag();
+            }
+        }
+    }
+
+    private void readParam(XMLStreamReader reader,
+                           Map<String, Object> map,
+                           int depth,
+                           ParseBudget budget) throws XMLStreamException {
+
+        budget.consumeEntry();
+
+        String name = StaxUtils.ATT(reader, ATT_NAME_SHORT);
+        if (name == null) {
+            name = StaxUtils.ATT(reader, ATT_NAME);
+        }
+        map.put(name, parseValue(reader, depth, budget));
+    }
+
+    private Object parseValue(XMLStreamReader reader,
+                              int depth,
+                              ParseBudget budget) throws XMLStreamException {
+
+        // Validate parameter tag
+        String type = StaxUtils.ATT(reader, ATT_TYPE);
+        if (type == null) {
+            type = reader.getName().getLocalPart(); // Use the tag name if
+            // attribute is not
+            // available
+        }
+
+        PMapType ptype = PMapType.lookup(type);
+
+        if (ptype != null) {
+
+            // Positioning on child element TEXT or <parameter
+            String text = StaxUtils.TAG_TEXT(reader);
+            budget.checkText(text);
+
+            try {
+                switch (ptype) {
+                    case STRING:
+                        return text;
+                    case INT:
+                        return Integer.valueOf(text);
+                    case LONG:
+                        return Long.valueOf(text);
+                    case FLOAT:
+                        return Float.valueOf(text);
+                    case DOUBLE:
+                        return Double.valueOf(text);
+                    case BOOLEAN:
+                        return Boolean.valueOf(text);
+                    case DATE:
+                        return parseDate(text);
+                    case NULL:
+                        return null;
+                    case MAP:
+                        budget.checkDepth(depth + 1);
+                        Map<String, Object> innerMap = new HashMap<>();
+                        readMap(reader, innerMap, depth + 1, budget);
+                        return new SatelliteData(innerMap);
+                    case ARRAY:
+                        budget.checkDepth(depth + 1);
+                        return parseList(reader, depth + 1, budget);
+                    case DECIMAL:
+                        return new BigDecimal(text);
+                }
+            } catch (Exception exc) {
+                throw new XMLStreamException("Invalid data -> " + reader.getEventType() + "-" + exc, exc);
+            } finally {
+                reader.next();
+            }
+        } else {
+            if (!_plugins.isEmpty()) {
+                PMapReadPlugin readPlugin = _plugins.get(type);
+                if (readPlugin != null) {
+                    try {
+                        return readPlugin.readObject(type, reader);
+                    } catch (IOException e) {
+                        throw new XMLStreamException("Invalid data -> " + reader.getEventType() + "-" + e);
+                    } finally {
+                        reader.next();
+                    }
+                }
+            }
+        }
+
+        throw new XMLStreamException("Invalid type - " + type);
+    }
+
+    private List<Object> parseList(XMLStreamReader reader,
+                                   int depth,
+                                   ParseBudget budget) throws XMLStreamException, SatelliteException {
+
+        List<Object> innerList = new ArrayList<>();
+
+        while (reader.hasNext()) {
+            if (reader.getEventType() == XMLStreamReader.START_ELEMENT) {
+                if (innerList.size() >= _limits.getMaxCollectionSize()) {
+                    throw new XMLStreamException("PMAP collection size limit exceeded");
+                }
+                budget.consumeEntry();
+                innerList.add(parseValue(reader, depth, budget));
+            } else if (reader.getEventType() == XMLStreamReader.END_ELEMENT) {
+                break;
+            } else {
+                reader.nextTag();
+            }
+
+        }
+
+        return innerList;
+    }
+
+    private Date parseDate(String text) throws ParseException {
+
+        // Previous snapshots used this sentinel for the maximum representable date.
+        if ("2922789940817071255".equals(text)) {
+            return new Date(Long.MAX_VALUE);
+        }
+
+        try {
+            LocalDateTime parsed = LocalDateTime.parse(text, DATE_FORMATTER);
+            return Date.from(parsed.toInstant(ZoneOffset.UTC));
+        } catch (DateTimeParseException e) {
+            ParseException parseException =
+                    new ParseException("Unparseable PMAP date: " + text, e.getErrorIndex());
+            parseException.initCause(e);
+            throw parseException;
+        }
+    }
+
+    private DocumentFragment parseXML(XMLStreamReader reader) throws XMLStreamException, ParserConfigurationException {
+
+        DocumentBuilder documentBuilder =
+                DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        Document doc = documentBuilder.newDocument();
+
+        DocumentFragment df = doc.createDocumentFragment();
+        Node node = doc.createElement("dummy");
+
+        StaxUtils.XMLReader2Document(df.getOwnerDocument(), node, reader);
+
+        // Import all children nodes and their structure
+        NodeList children = node.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node nodec = doc.importNode(children.item(i), true);
+            df.appendChild(nodec);
+        }
+
+        return df;
+    }
+
+    public byte[] PMAPtoByteArray(Map<String, Object> map, SerializationType type)
+            throws XMLStreamException, IOException {
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+        PMAPtoOutputStream(map, type, bos);
+        bos.flush();
+
+        return bos.toByteArray();
+    }
+
+    public void PMAPtoOutputStream(Map<String, Object> map, SerializationType type, OutputStream os)
+            throws XMLStreamException, IOException {
+
+        Objects.requireNonNull(os, "os");
+        OutputStreamWriter writer = new OutputStreamWriter(new NonClosingOutputStream(os), CHARSET);
+        PMAPtoWriter(map, type, writer);
+        writer.flush();
+    }
+
+    public void PMAPtoWriter(Map<String, Object> map, SerializationType type, Writer w)
+            throws XMLStreamException, IOException {
+
+        final XMLStreamWriter writer = XMLOutputFactory.newInstance().createXMLStreamWriter(w);
+        try {
+            writer.writeStartDocument(ENCODING, VERSION);
+            writer.writeCharacters("\n");
+            if (type.getVersion() == 1) {
+                writer.writeStartElement(PMapType.MAP.getOldPMapName());
+            } else {
+                writer.writeStartElement(PMapType.MAP.getShortName());
+            }
+            XMLWriterToMapWithoutRoot(type, writer, map, 0);
+            writer.writeEndElement();
+            writer.writeEndDocument();
+            writer.flush();
+            writer.close();
+        } finally {
+            closeQuietly(writer);
+        }
+    }
+
+    public String toXMLString(Map<String, Object> map, SerializationType type) throws XMLStreamException {
+
+        if (map == null) {
+            return null;
+        }
+
+        try (StringWriter sw = new StringWriter()) {
+            PMAPtoWriter(map, type, sw);
+            sw.flush();
+            return sw.toString();
+        } catch (IOException ioe) {
+            throw new CoreError(ioe.toString(), ioe);
+        }
+    }
+
+    public SatelliteData byteArrayToData(SerializationType serType, byte[] content)
+            throws XMLStreamException, IOException {
+
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(content)) {
+            return inputStreamToData(serType, bis);
+        }
+    }
+
+    public SatelliteData inputStreamToData(SerializationType serType, InputStream is)
+            throws XMLStreamException, IOException {
+
+        XMLStreamReader reader = createXmlInputFactory().createXMLStreamReader(
+                new InputStreamReader(
+                        new LimitedInputStream(is, _limits.getMaxInputBytes()),
+                        CHARSET));
+        try {
+            final String pname = serType.getVersion() == 1
+                    ? PMapType.MAP.getOldPMapName()
+                    : PMapType.MAP.getShortName();
+
+            reader.nextTag();
+            String rootTag = reader.getLocalName();
+
+            if ((rootTag != null && rootTag.equals(pname))
+                    || (serType.getVersion() == 1 && pname != null
+                    && pname.equals(reader.getAttributeValue(null, "type")))) {
+                return getData(reader);
+            }
+        } finally {
+            closeQuietly(reader);
+        }
+
+        throw new XMLStreamException("unknown pmap format");
+    }
+
+        public void XMLWriterToMapWithoutRoot(SerializationType serType, XMLStreamWriter writer, Map<String, Object> map)
+            throws XMLStreamException {
+
+        XMLWriterToMapWithoutRoot(serType, writer, map, 0);
+    }
+
+    public void XMLWriterToMapWithoutRoot(SerializationType serType, XMLStreamWriter writer, Map<String, ?> map,
+                                          int level)
+            throws XMLStreamException {
+
+        Collection<String> keys = map.keySet();
+
+        if (serType.ident()) {
+            List<String> tmp = new ArrayList<>(map.keySet());
+            Collections.sort(tmp);
+            keys = tmp;
+        }
+
+        int levelBelow = level + 1;
+        for (String key : keys) {
+            XMLWriterToValue(serType, writer, key, map.get(key), levelBelow);
+        }
+
+        indentLevel(serType, writer, level);
+    }
+
+    private void XMLWriterToList(SerializationType serType, XMLStreamWriter writer, Collection<?> list, int level)
+            throws XMLStreamException {
+
+        int levelBelow = level + 1;
+
+        for (Object value : list) {
+            XMLWriterToValue(serType, writer, null, value, levelBelow);
+        }
+        indentLevel(serType, writer, level);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void XMLWriterToValue(SerializationType serType, XMLStreamWriter writer, String key, Object value,
+                                  int level)
+            throws XMLStreamException {
+
+        PMapType type = PMapType.lookup(value);
+        if (type == null) {
+            if (serType.ignoreUnknownTypes()) {
+                // Just ignore this value because it's not supported
+                return;
+            }
+            throw new XMLStreamException("Invalid Type - " + value.getClass().getCanonicalName());
+        }
+
+        if (serType.getVersion() == 1) {
+            writer.writeStartElement(TAG_PARAMETER);
+            writer.writeAttribute(ATT_TYPE, type.getOldPMapName());
+            if (key != null) {
+                writer.writeAttribute(ATT_NAME, key);
+            }
+        } else {
+            indentLevel(serType, writer, level);
+            writer.writeStartElement(type.getShortName());
+            if (key != null) {
+                writer.writeAttribute(ATT_NAME_SHORT, key);
+            }
+        }
+
+        switch (type) {
+            case STRING:
+            case LONG:
+            case INT:
+            case FLOAT:
+            case DOUBLE:
+            case BOOLEAN:
+            case DECIMAL:
+                writeSimpleValue(writer, type, value);
+                break;
+            case MAP:
+                XMLWriterToMapWithoutRoot(serType, writer, (Map<String, Object>) value, level);
+                break;
+            case ARRAY:
+                XMLWriterToList(serType, writer, (Collection<?>) value, level);
+                break;
+            case DATE:
+                writeSimpleValue(
+                        writer,
+                        type,
+                        DATE_FORMATTER.format(((Date) value).toInstant().atOffset(ZoneOffset.UTC)));
+                break;
+            case NULL:
+                break;
+        }
+        writer.writeEndElement();
+
+    }
+
+    private void writeSimpleValue(XMLStreamWriter writer, PMapType type, Object value) throws XMLStreamException {
+
+        writer.writeCharacters(String.valueOf(value));
+    }
+
+    public Object parseValueLeaf(String value, PMapType ptype) throws ParseException {
+
+        Object object = null;
+
+        switch (ptype) {
+            case STRING:
+                object = value;
+                break;
+            case INT:
+                object = Integer.parseInt(value);
+                break;
+            case LONG:
+                object = Long.parseLong(value);
+                break;
+            case FLOAT:
+                object = Float.parseFloat(value);
+                break;
+            case DOUBLE:
+                object = Double.parseDouble(value);
+                break;
+            case BOOLEAN:
+                object = Boolean.parseBoolean(value);
+                break;
+            case DATE:
+                object = parseDate(value);
+                break;
+            case DECIMAL:
+                object = new BigDecimal(value);
+                break;
+            default:
+                break;
+        }
+
+        return object;
+    }
+
+    public Entry<String, Object> parseLeaf(XMLStreamReader xmlStreamReader, PMapType ptype)
+            throws XMLStreamException, ParseException {
+
+        String key = xmlStreamReader.getAttributeValue(0);
+
+        Map.Entry<String, Object> result = new AbstractMap.SimpleEntry<>(key, null);
+
+        xmlStreamReader.next();
+
+        if (!ptype.equals(PMapType.NULL)) {
+
+            String value = xmlStreamReader.getText();
+
+            while (xmlStreamReader.hasNext() && xmlStreamReader.next() != XMLStreamConstants.END_ELEMENT) {
+                value = value.concat(xmlStreamReader.getText());
+            }
+
+            if (value != null && !value.isEmpty() && ptype != null && !ptype.equals(PMapType.NULL)) {
+                result.setValue(parseValueLeaf(value, ptype));
+            }
+        }
+
+        xmlStreamReader.next();
+
+        return result;
+    }
+
+    public SatelliteData parseArray(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
+
+        String keyA = "";
+        if (xmlStreamReader.getAttributeCount() > 0) {
+            keyA = xmlStreamReader.getAttributeValue(0);
+        }
+
+        List<SatelliteData> pMapList = new ArrayList<>();
+        do {
+            xmlStreamReader.next();
+            if (xmlStreamReader.isStartElement()) {
+                SatelliteData map = parseTree(xmlStreamReader);
+                pMapList.add(map);
+            }
+        } while (xmlStreamReader.hasNext() && !xmlStreamReader.isEndElement()
+                && xmlStreamReader.getEventType() != XMLStreamConstants.END_DOCUMENT);
+
+        SatelliteData result = new SatelliteData();
+        result.put(keyA, pMapList);
+        xmlStreamReader.next();
+
+        return result;
+    }
+
+    public SatelliteData parseMap(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
+
+
+        String keyM = "";
+        if (xmlStreamReader.getAttributeCount() > 0) {
+            keyM = xmlStreamReader.getAttributeValue(0);
+        }
+        SatelliteData valueM = new SatelliteData();
+
+        xmlStreamReader = getFirstElementByMap(xmlStreamReader);
+
+        while (xmlStreamReader.hasNext() && !xmlStreamReader.isEndElement()
+                && xmlStreamReader.getEventType() != XMLStreamConstants.END_DOCUMENT) {
+            if (xmlStreamReader.isStartElement()) {
+                valueM.putAll(parseTree(xmlStreamReader));
+            } else {
+                xmlStreamReader.next();
+            }
+        }
+
+        final SatelliteData result;
+        if (keyM == null || keyM.isEmpty()) {
+            result = valueM;
+        } else {
+            result = new SatelliteData();
+            result.put(keyM, valueM);
+        }
+
+        if (xmlStreamReader.hasNext()) {
+            xmlStreamReader.next();
+        }
+
+        return result;
+    }
+
+    public SatelliteData parseTree(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
+
+        SatelliteData result = new SatelliteData();
+
+        if (xmlStreamReader.isStartElement()) {
+
+            PMapType pMapType = PMapType.lookup(xmlStreamReader.getName().toString());
+
+            if (pMapType == null) {
+                throw new XMLStreamException("Invalid type - " + xmlStreamReader.getName());
+            }
+
+            if (isLeaf(xmlStreamReader, pMapType)) {
+                Entry<String, Object> entry = parseLeaf(xmlStreamReader, pMapType);
+                result.put(entry.getKey(), entry.getValue());
+            } else if (pMapType.equals(PMapType.ARRAY)) {
+                result = parseArray(xmlStreamReader);
+            } else if (pMapType.equals(PMapType.MAP)) {
+                result = parseMap(xmlStreamReader);
+            }
+        }
+
+        return result;
+
+    }
+
+    public SatelliteData parseDocument(XMLStreamReader xmlStreamReader) throws XMLStreamException, ParseException {
+
+        SatelliteData result = new SatelliteData();
+
+        if (xmlStreamReader.getEventType() == XMLStreamConstants.START_DOCUMENT) {
+            xmlStreamReader.next();
+
+            result = parseTree(xmlStreamReader);
+        }
+
+        return result;
+
+    }
+
+    public List<SatelliteData> getRangeMapListByArray(XMLStreamReader xmlStreamReaderArray, int indexStart, int indexEnd)
+            throws XMLStreamException, CoreException, ParseException {
+
+        List<SatelliteData> result = new ArrayList<>();
+
+        if (xmlStreamReaderArray.isStartElement()) {
+            PMapType pMapType = PMapType.lookup(xmlStreamReaderArray.getLocalName());
+            if (PMapType.ARRAY.equals(pMapType) && indexStart > -1 && indexEnd >= 0 && indexStart <= indexEnd) {
+
+                xmlStreamReaderArray = getElementByArray(xmlStreamReaderArray, indexStart);
+                int i = indexStart;
+                while (i <= indexEnd && xmlStreamReaderArray.hasNext() && !xmlStreamReaderArray.isEndElement()) {
+
+                    if (xmlStreamReaderArray.isStartElement()) {
+                        result.add(parseTree(xmlStreamReaderArray));
+                        i++;
+                    } else {
+                        xmlStreamReaderArray.next();
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    public List<SatelliteData> getRangeListByArray(XMLStreamReader initialPosition, int numberOfRecords)
+            throws SatelliteException, XMLStreamException, ParseException {
+
+        List<SatelliteData> result = new ArrayList<>();
+
+        if (initialPosition.isStartElement()) {
+
+            int i = 0;
+            while (i < numberOfRecords && initialPosition.hasNext() && !initialPosition.isEndElement()
+                    && initialPosition.getEventType() != XMLStreamConstants.END_DOCUMENT) {
+                if (initialPosition.isStartElement()) {
+                    SatelliteData map = parseTree(initialPosition);
+                    result.add(map);
+                    i++;
+                } else {
+                    initialPosition.next();
+                }
+            }
+
+        }
+
+        return result;
+    }
+
+
+    private static final class ParseBudget {
+        private final PMapParserLimits limits;
+        private int entries;
+
+        private ParseBudget(PMapParserLimits limits) {
+            this.limits = limits;
+        }
+
+        private void checkDepth(int depth) throws XMLStreamException {
+            if (depth > limits.getMaxDepth()) {
+                throw new XMLStreamException("PMAP nesting depth limit exceeded");
+            }
+        }
+
+        private void consumeEntry() throws XMLStreamException {
+            entries++;
+            if (entries > limits.getMaxEntries()) {
+                throw new XMLStreamException("PMAP entry limit exceeded");
+            }
+        }
+
+        private void checkText(String value) throws XMLStreamException {
+            if (value != null && value.length() > limits.getMaxTextLength()) {
+                throw new XMLStreamException("PMAP text length limit exceeded");
+            }
+        }
+    }
+
+    private static final class NonClosingOutputStream extends FilterOutputStream {
+        private NonClosingOutputStream(OutputStream output) {
+            super(Objects.requireNonNull(output, "output"));
+        }
+
+        @Override
+        public void close() throws IOException {
+            flush();
+        }
+    }
+
+    private static final class LimitedInputStream extends FilterInputStream {
+        private final long maxBytes;
+        private long count;
+
+        private LimitedInputStream(InputStream input, long maxBytes) {
+            super(Objects.requireNonNull(input, "input"));
+            this.maxBytes = maxBytes;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int value = super.read();
+            if (value != -1) {
+                count++;
+                checkLimit();
+            }
+            return value;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int read = super.read(buffer, offset, length);
+            if (read > 0) {
+                count += read;
+                checkLimit();
+            }
+            return read;
+        }
+
+        private void checkLimit() throws IOException {
+            if (count > maxBytes) {
+                throw new IOException("PMAP input size limit exceeded");
+            }
+        }
+    }
+
+    private static final class LimitedReader extends FilterReader {
+        private final long maxCharacters;
+        private long count;
+
+        private LimitedReader(Reader reader, long maxCharacters) {
+            super(Objects.requireNonNull(reader, "reader"));
+            this.maxCharacters = maxCharacters;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int value = super.read();
+            if (value != -1) {
+                count++;
+                checkLimit();
+            }
+            return value;
+        }
+
+        @Override
+        public int read(char[] buffer, int offset, int length) throws IOException {
+            int read = super.read(buffer, offset, length);
+            if (read > 0) {
+                count += read;
+                checkLimit();
+            }
+            return read;
+        }
+
+        private void checkLimit() throws IOException {
+            if (count > maxCharacters) {
+                throw new IOException("PMAP input size limit exceeded");
+            }
+        }
+    }
+
+    public enum SerializationType {
+        PMAP1(true, false, 1),
+        PMAP2(false, false, 2),
+        PMAP2_WITH_FORMATTING(false, true, 2),
+        PMAP2_NO_UNKNOWN(true, false, 2),
+        PMAP1_NO_UNKWNOWN(true, false, 1);
+
+        private final boolean _ignoreUnknown;
+        private final boolean _indent;
+        private final int _version;
+
+
+        SerializationType(boolean ignoreUnknownValue, boolean indent, int version) {
+
+            _ignoreUnknown = ignoreUnknownValue;
+            _indent = indent;
+            _version = version;
+        }
+
+
+        public int getVersion() {
+
+            return _version;
+        }
+
+
+        public boolean ignoreUnknownTypes() {
+
+            return _ignoreUnknown;
+        }
+
+        public boolean ident() {
+
+            return _indent;
+        }
+    }
+
+
+}
