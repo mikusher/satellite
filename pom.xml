@@ -33,7 +33,7 @@
     <lombok.version>1.18.48</lombok.version>
     <commons.io.version>2.22.0</commons.io.version>
     <commons.codec.version>1.22.1</commons.codec.version>
-    <commons.lang3.version>3.20.0</commons.lang3.version>
+    <commons.lang3.version>3.21.0</commons.lang3.version>
     <guava.version>33.7.1-jre</guava.version>
     <slf4j.version>2.0.20</slf4j.version>
     <opentelemetry.version>1.66.0</opentelemetry.version>
