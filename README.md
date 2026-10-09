@@ -22,7 +22,6 @@ Use either side alone, or connect them with the optional bridge.
 | `satellite-egress-jackson` | Policy-enforced JSON + JSON Schema 2020-12 |
 | `satellite-egress-opentelemetry` | Policy-enforced OpenTelemetry attributes |
 | `satellite-data-egress-bridge` | Optional Satellite Data → Egress bridge |
-| `satellite-legacy-logging` | Legacy logging compatibility |
 
 **Boundary rule:** Satellite Data never depends on Egress. Egress never depends on Satellite Data. Only the bridge knows both.
 

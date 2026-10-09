@@ -2,7 +2,7 @@
 
 ## Supported code
 
-The active 2.x work is developed on `satellite-v2-foundation` until it is ready to merge. Security fixes for compatibility APIs should avoid unnecessary breakage.
+Satellite 2.x is the active development line. Security fixes should preserve the documented security boundaries and fail-closed behavior.
 
 ## Reporting a vulnerability
 

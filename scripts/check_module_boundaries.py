@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail CI when Satellite module dependency boundaries are violated."""
+"""Fail CI when Satellite module dependency or naming boundaries are violated."""
 
 from pathlib import Path
 import sys
@@ -10,7 +10,6 @@ NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 
 DATA = "satellite-data"
 BRIDGE = "satellite-data-egress-bridge"
-LEGACY_LOGGING = "satellite-legacy-logging"
 EGRESS_MODULES = {
     "satellite-egress-core",
     "satellite-egress-policy",
@@ -18,14 +17,15 @@ EGRESS_MODULES = {
     "satellite-egress-jackson",
     "satellite-egress-opentelemetry",
 }
-
-errors = []
+EXPECTED_MODULES = {DATA, BRIDGE, *EGRESS_MODULES}
 
 FORBIDDEN_LEGACY_NAMES = (
     "ParameterMap",
     "ParameterInfoMap",
     "SatelliteMap",
     "satellite-parametermap",
+    "satellite-legacy-logging",
+    "com.mikusher.logger",
 )
 
 SCAN_SUFFIXES = {
@@ -37,6 +37,8 @@ SCAN_SUFFIXES = {
     ".py",
     ".properties",
 }
+
+errors = []
 
 
 def dependencies(module: str):
@@ -62,10 +64,24 @@ def scan_imports(module: str, banned_prefixes):
                 )
 
 
+root_tree = ET.parse(ROOT / "pom.xml")
+reactor_modules = {
+    module.text.strip()
+    for module in root_tree.findall("./m:modules/m:module", NS)
+    if module.text and module.text.strip()
+}
+
+if reactor_modules != EXPECTED_MODULES:
+    missing = sorted(EXPECTED_MODULES - reactor_modules)
+    unexpected = sorted(reactor_modules - EXPECTED_MODULES)
+    if missing:
+        errors.append(f"root reactor is missing modules: {', '.join(missing)}")
+    if unexpected:
+        errors.append(f"root reactor contains unexpected modules: {', '.join(unexpected)}")
+
 for group, artifact in dependencies(DATA):
     if group == "io.github.mikusher" and (
-        artifact.startswith("satellite-egress-")
-        or artifact in {BRIDGE, LEGACY_LOGGING}
+        artifact.startswith("satellite-egress-") or artifact == BRIDGE
     ):
         errors.append(f"{DATA} must not depend on {group}:{artifact}")
 
@@ -73,22 +89,10 @@ scan_imports(DATA, ["io.github.mikusher.satellite.egress"])
 
 for module in sorted(EGRESS_MODULES):
     for group, artifact in dependencies(module):
-        if group == "io.github.mikusher" and artifact in {
-            DATA,
-            BRIDGE,
-            LEGACY_LOGGING,
-        }:
+        if group == "io.github.mikusher" and artifact in {DATA, BRIDGE}:
             errors.append(f"{module} must not depend on {group}:{artifact}")
 
     scan_imports(module, ["com.mikusher.parameter", "com.mikusher.formats"])
-
-for group, artifact in dependencies(LEGACY_LOGGING):
-    if group == "io.github.mikusher" and (
-        artifact.startswith("satellite-egress-") or artifact == BRIDGE
-    ):
-        errors.append(f"{LEGACY_LOGGING} must not depend on {group}:{artifact}")
-
-scan_imports(LEGACY_LOGGING, ["io.github.mikusher.satellite.egress"])
 
 bridge_dependencies = set(dependencies(BRIDGE))
 for required in {
@@ -96,9 +100,11 @@ for required in {
     ("io.github.mikusher", "satellite-egress-core"),
 }:
     if required not in bridge_dependencies:
-        errors.append(f"{BRIDGE} is missing required dependency {required[0]}:{required[1]}")
+        errors.append(
+            f"{BRIDGE} is missing required dependency {required[0]}:{required[1]}"
+        )
 
-# Satellite 2 is pre-release: legacy public naming must not reappear.
+# Satellite 2 is pre-release: removed public naming must not reappear.
 for candidate in ROOT.rglob("*"):
     if not candidate.is_file():
         continue
@@ -110,12 +116,12 @@ for candidate in ROOT.rglob("*"):
     source = candidate.read_text(encoding="utf-8", errors="strict")
     relative = candidate.relative_to(ROOT)
 
-    # The enforcement script contains the forbidden tokens by definition.
+    # This enforcement script contains the forbidden tokens by definition.
     if relative == Path("scripts/check_module_boundaries.py"):
         continue
 
     for legacy_name in FORBIDDEN_LEGACY_NAMES:
-        if legacy_name in source or legacy_name.lower() in source.lower():
+        if legacy_name.lower() in source.lower():
             errors.append(
                 f"{relative} still contains removed Satellite 2 name: {legacy_name}"
             )
@@ -126,4 +132,4 @@ if errors:
         print(f" - {error}", file=sys.stderr)
     sys.exit(1)
 
-print("Satellite module boundaries verified.")
+print("Satellite module boundaries and naming verified.")
