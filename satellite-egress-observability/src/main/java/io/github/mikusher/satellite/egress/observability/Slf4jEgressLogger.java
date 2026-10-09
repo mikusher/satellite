@@ -22,6 +22,20 @@ public final class Slf4jEgressLogger {
         this(logger, processor, PrivacyViolationListener.noop());
     }
 
+    public static Slf4jEgressLogger secure(Logger logger) {
+        return new Slf4jEgressLogger(
+                logger,
+                EgressProcessor.secureDefaults());
+    }
+
+    public static Slf4jEgressLogger secure(Logger logger,
+                                           PrivacyViolationListener violationListener) {
+        return new Slf4jEgressLogger(
+                logger,
+                EgressProcessor.secureDefaults(),
+                violationListener);
+    }
+
     public Slf4jEgressLogger(Logger logger,
                             EgressProcessor processor,
                             PrivacyViolationListener violationListener) {
