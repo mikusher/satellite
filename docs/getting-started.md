@@ -10,6 +10,13 @@ Code
 → Why it matters
 ```
 
+Satellite uses **progressive disclosure**: the common path is intentionally short, while the detailed builders remain available for advanced policy matching and customization.
+
+```text
+common case    -> secure factories + convenience rules
+advanced case  -> PolicyRule builder + custom processor components
+```
+
 ## 1. SatelliteData — dynamic typed application data
 
 Use `SatelliteData` when you want flexible application data with typed getters.
@@ -137,15 +144,13 @@ EgressEnvelope envelope = EgressEnvelope.builder()
         .put(
                 email,
                 "user@example.com",
-                ValueMetadata.of(
-                        DataOrigin.DATABASE,
-                        TrustLevel.VALIDATED))
+                DataOrigin.DATABASE,
+                TrustLevel.VALIDATED)
         .put(
                 accessToken,
                 token,
-                ValueMetadata.of(
-                        DataOrigin.HTTP_HEADER,
-                        TrustLevel.UNTRUSTED))
+                DataOrigin.HTTP_HEADER,
+                TrustLevel.UNTRUSTED)
         .build();
 ```
 
@@ -168,15 +173,12 @@ The envelope represents classified data **inside the application**. Policy is ev
 ```java
 import io.github.mikusher.satellite.egress.policy.*;
 
-EgressProcessor processor =
-        new EgressProcessor(EgressPolicyEngine.secureDefaults());
-
 EgressReport report =
-        processor.process(
-                envelope,
-                EgressContext.of(
+        EgressProcessor.secureDefaults()
+                .process(
+                        envelope,
                         EgressSink.LOG,
-                        "request-log"));
+                        "request-log");
 
 System.out.println("Output: " + report.getOutput());
 
@@ -291,14 +293,12 @@ public class PurposeExample {
         EgressPolicyEngine policy =
                 EgressPolicyEngine.builder()
                         .add(
-                                PolicyRule.builder()
-                                        .key(email)
-                                        .sink(EgressSink.NETWORK)
-                                        .purpose("account-provider")
-                                        .action(EgressAction.ALLOW)
-                                        .reasonCode("ACCOUNT_EMAIL_REQUIRED")
-                                        .build())
-                        .add(new DefaultEgressRule())
+                                EgressRules.allow(
+                                        email,
+                                        EgressSink.NETWORK,
+                                        "account-provider",
+                                        "ACCOUNT_EMAIL_REQUIRED"))
+                        .withSecureDefaults()
                         .build();
 
         EgressProcessor processor = new EgressProcessor(policy);
@@ -306,16 +306,14 @@ public class PurposeExample {
         EgressReport accountProvider =
                 processor.process(
                         envelope,
-                        EgressContext.of(
-                                EgressSink.NETWORK,
-                                "account-provider"));
+                        EgressSink.NETWORK,
+                        "account-provider");
 
         EgressReport analytics =
                 processor.process(
                         envelope,
-                        EgressContext.of(
-                                EgressSink.NETWORK,
-                                "analytics"));
+                        EgressSink.NETWORK,
+                        "analytics");
 
         System.out.println("Account provider: " + accountProvider.getOutput());
         System.out.println("Analytics: " + analytics.getOutput());
@@ -359,14 +357,12 @@ public class TokenizationExample {
         EgressPolicyEngine policy =
                 EgressPolicyEngine.builder()
                         .add(
-                                PolicyRule.builder()
-                                        .key(customerId)
-                                        .sink(EgressSink.STORAGE)
-                                        .purpose("analytics")
-                                        .action(EgressAction.TOKENIZE)
-                                        .reasonCode("ANALYTICS_PSEUDONYM")
-                                        .build())
-                        .add(new DefaultEgressRule())
+                                EgressRules.tokenize(
+                                        customerId,
+                                        EgressSink.STORAGE,
+                                        "analytics",
+                                        "ANALYTICS_PSEUDONYM"))
+                        .withSecureDefaults()
                         .build();
 
         byte[] secret =
@@ -382,9 +378,8 @@ public class TokenizationExample {
         EgressReport result =
                 processor.process(
                         envelope,
-                        EgressContext.of(
-                                EgressSink.STORAGE,
-                                "analytics"));
+                        EgressSink.STORAGE,
+                        "analytics");
 
         System.out.println(result.getOutput());
     }
@@ -439,10 +434,8 @@ public class LoggingExample {
                         .build();
 
         Slf4jEgressLogger logger =
-                new Slf4jEgressLogger(
-                        LoggerFactory.getLogger(LoggingExample.class),
-                        new EgressProcessor(
-                                EgressPolicyEngine.secureDefaults()));
+                Slf4jEgressLogger.secure(
+                        LoggerFactory.getLogger(LoggingExample.class));
 
         SafeLogEvent event =
                 logger.prepare(
@@ -497,10 +490,8 @@ public class JsonExample {
                         .build();
 
         JacksonEgressSerializer serializer =
-                new JacksonEgressSerializer(
-                        new ObjectMapper(),
-                        new EgressProcessor(
-                                EgressPolicyEngine.secureDefaults()));
+                JacksonEgressSerializer.secure(
+                        new ObjectMapper());
 
         String json =
                 serializer.toJson(
@@ -549,9 +540,7 @@ EgressEnvelope envelope = EgressEnvelope.builder()
         .build();
 
 OpenTelemetrySpanAdapter adapter =
-        new OpenTelemetrySpanAdapter(
-                new EgressProcessor(
-                        EgressPolicyEngine.secureDefaults()));
+        OpenTelemetrySpanAdapter.secure();
 
 OpenTelemetryEgressResult result =
         adapter.prepareAttributes(
@@ -698,7 +687,7 @@ The importer accepts Satellite's supported flat-object subset and rejects ambigu
 
 ## 14. Bridge SatelliteData to Egress
 
-The bridge is the explicit boundary between flexible application data and classified egress data.
+The bridge is the explicit boundary between flexible application data and classified egress data. When a `SatelliteSchema` already exists, it can be reused directly as the classified key registry and its required fields are validated during conversion.
 
 ```java
 import com.mikusher.parameter.SatelliteData;
@@ -725,13 +714,18 @@ public class BridgeExample {
                         .classifiedAs(DataClassification.CONFIDENTIAL)
                         .category(DataCategory.PERSONAL_DATA);
 
+        SatelliteSchema schema =
+                SatelliteSchema.builder("User")
+                        .required(userId)
+                        .optional(email)
+                        .build();
+
         DataBridgeResult result =
                 SatelliteDataEgressBridge.toEnvelope(
                         data,
-                        Arrays.asList(userId, email),
-                        ValueMetadata.of(
-                                DataOrigin.APPLICATION,
-                                TrustLevel.VALIDATED));
+                        schema,
+                        DataOrigin.APPLICATION,
+                        TrustLevel.VALIDATED);
 
         EgressEnvelope envelope = result.getEnvelope();
 
@@ -757,8 +751,9 @@ data.put("forgotten-secret", "SECRET");
 
 SatelliteDataEgressBridge.toEnvelope(
         data,
-        Arrays.asList(userId, email),
-        ValueMetadata.unknown());
+        schema,
+        DataOrigin.UNKNOWN,
+        TrustLevel.UNKNOWN);
 ```
 
 Expected result:
@@ -774,8 +769,9 @@ There is an explicit lenient migration mode:
 DataBridgeResult lenient =
         SatelliteDataEgressBridge.toEnvelopeLenient(
                 data,
-                Arrays.asList(userId, email),
-                ValueMetadata.unknown());
+                schema,
+                DataOrigin.UNKNOWN,
+                TrustLevel.UNKNOWN);
 
 System.out.println(lenient.getIgnoredKeys());
 ```
@@ -911,22 +907,18 @@ public class PaymentExample {
         EgressPolicyEngine policy =
                 EgressPolicyEngine.builder()
                         .add(
-                                PolicyRule.builder()
-                                        .key(email)
-                                        .sink(EgressSink.NETWORK)
-                                        .purpose("payment-provider")
-                                        .action(EgressAction.ALLOW)
-                                        .reasonCode("PAYMENT_EMAIL_REQUIRED")
-                                        .build())
+                                EgressRules.allow(
+                                        email,
+                                        EgressSink.NETWORK,
+                                        "payment-provider",
+                                        "PAYMENT_EMAIL_REQUIRED"))
                         .add(
-                                PolicyRule.builder()
-                                        .key(paymentToken)
-                                        .sink(EgressSink.NETWORK)
-                                        .purpose("payment-provider")
-                                        .action(EgressAction.ALLOW)
-                                        .reasonCode("PAYMENT_TOKEN_REQUIRED")
-                                        .build())
-                        .add(new DefaultEgressRule())
+                                EgressRules.allow(
+                                        paymentToken,
+                                        EgressSink.NETWORK,
+                                        "payment-provider",
+                                        "PAYMENT_TOKEN_REQUIRED"))
+                        .withSecureDefaults()
                         .build();
 
         EgressProcessor processor = new EgressProcessor(policy);
@@ -934,23 +926,20 @@ public class PaymentExample {
         EgressReport log =
                 processor.process(
                         envelope,
-                        EgressContext.of(
-                                EgressSink.LOG,
-                                "payment-log"));
+                        EgressSink.LOG,
+                        "payment-log");
 
         EgressReport paymentProvider =
                 processor.process(
                         envelope,
-                        EgressContext.of(
-                                EgressSink.NETWORK,
-                                "payment-provider"));
+                        EgressSink.NETWORK,
+                        "payment-provider");
 
         EgressReport analytics =
                 processor.process(
                         envelope,
-                        EgressContext.of(
-                                EgressSink.NETWORK,
-                                "analytics"));
+                        EgressSink.NETWORK,
+                        "analytics");
 
         System.out.println("LOG:");
         System.out.println(log.getOutput());
@@ -1001,14 +990,12 @@ Even an explicit `ALLOW` cannot emit confidential or privacy-sensitive values ra
 EgressPolicyEngine policy =
         EgressPolicyEngine.builder()
                 .add(
-                        PolicyRule.builder()
-                                .key(email)
-                                .sink(EgressSink.LOG)
-                                .purpose("debug")
-                                .action(EgressAction.ALLOW)
-                                .reasonCode("DEBUG_EMAIL")
-                                .build())
-                .add(new DefaultEgressRule())
+                        EgressRules.allow(
+                                email,
+                                EgressSink.LOG,
+                                "debug",
+                                "DEBUG_EMAIL"))
+                .withSecureDefaults()
                 .build();
 
 EgressReport report =
@@ -1017,9 +1004,8 @@ EgressReport report =
                         EgressEnvelope.builder()
                                 .put(email, "alice@example.com")
                                 .build(),
-                        EgressContext.of(
-                                EgressSink.LOG,
-                                "debug"));
+                        EgressSink.LOG,
+                        "debug");
 
 System.out.println(report.getOutput());
 
@@ -1044,6 +1030,24 @@ customer.email -> DENY [OBSERVABILITY_RAW_SENSITIVE_DENIED]
 For observability, sensitive data must be redacted, tokenized or denied — never emitted raw.
 
 ---
+
+# When to use the advanced API
+
+The short API is the recommended default. Use the detailed API when policy must match several dimensions at once:
+
+```java
+PolicyRule rule =
+        PolicyRule.builder()
+                .category(DataCategory.PERSONAL_DATA)
+                .origin(DataOrigin.USER_INPUT)
+                .trustLevel(TrustLevel.UNTRUSTED)
+                .sink(EgressSink.LOG)
+                .action(EgressAction.REDACT)
+                .reasonCode("UNTRUSTED_PII_IN_LOG")
+                .build();
+```
+
+Custom `Redactor`, `Tokenizer`, violation listeners and explicit `EgressContext` objects also remain available. Ergonomic shortcuts are additive; they do not remove the lower-level control.
 
 # Summary
 

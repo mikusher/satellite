@@ -40,12 +40,11 @@ EgressEnvelope envelope = EgressEnvelope.builder()
         .build();
 
 EgressReport report =
-        new EgressProcessor(EgressPolicyEngine.secureDefaults())
+        EgressProcessor.secureDefaults()
                 .process(
                         envelope,
-                        EgressContext.of(
-                                EgressSink.LOG,
-                                "request-log"));
+                        EgressSink.LOG,
+                        "request-log");
 
 System.out.println(report.getOutput());
 ```
@@ -67,6 +66,27 @@ auth.token -> DENY
 ```
 
 The important distinction is that `EgressEnvelope` may contain the original values **inside the application**. The policy is evaluated when those values are about to cross an egress boundary.
+
+## Simple by default, detailed when needed
+
+The common path uses short, intention-revealing APIs:
+
+```java
+EgressProcessor.secureDefaults()
+        .process(envelope, EgressSink.LOG, "request-log");
+
+EgressRules.allow(
+        email,
+        EgressSink.NETWORK,
+        "account-provider",
+        "ACCOUNT_EMAIL_REQUIRED");
+
+Slf4jEgressLogger.secure(logger);
+JacksonEgressSerializer.secure(objectMapper);
+OpenTelemetrySpanAdapter.secure();
+```
+
+The lower-level builders and constructors remain available for advanced policies, custom redactors/tokenizers and specialized integrations. The short APIs do not weaken fail-closed behavior, purpose scoping or observability guardrails.
 
 ## Mental model
 
