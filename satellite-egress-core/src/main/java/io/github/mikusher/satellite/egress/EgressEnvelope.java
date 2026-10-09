@@ -73,6 +73,13 @@ public final class EgressEnvelope {
             return put(key, value, ValueMetadata.unknown());
         }
 
+        public <T> Builder put(Key<T> key,
+                               T value,
+                               DataOrigin origin,
+                               TrustLevel trustLevel) {
+            return put(key, value, ValueMetadata.of(origin, trustLevel));
+        }
+
         public <T> Builder put(Key<T> key, T value, ValueMetadata metadata) {
             Objects.requireNonNull(key, "key");
             Objects.requireNonNull(metadata, "metadata");

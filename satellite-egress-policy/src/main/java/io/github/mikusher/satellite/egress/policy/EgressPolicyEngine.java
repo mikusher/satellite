@@ -23,7 +23,7 @@ public final class EgressPolicyEngine {
     }
 
     public static EgressPolicyEngine secureDefaults() {
-        return builder().add(new DefaultEgressRule()).build();
+        return builder().withSecureDefaults().build();
     }
 
     public PolicyDecision decide(EgressContext context, SatelliteEntry<?> entry) {
@@ -83,14 +83,29 @@ public final class EgressPolicyEngine {
 
     public static final class Builder {
         private final List<EgressRule> rules = new ArrayList<EgressRule>();
+        private boolean secureDefaults;
 
         public Builder add(EgressRule rule) {
             rules.add(Objects.requireNonNull(rule, "rule"));
             return this;
         }
 
+        /**
+         * Appends Satellite's conservative default rule after all explicit rules.
+         */
+        public Builder withSecureDefaults() {
+            secureDefaults = true;
+            return this;
+        }
+
         public EgressPolicyEngine build() {
-            return new EgressPolicyEngine(rules);
+            if (!secureDefaults) {
+                return new EgressPolicyEngine(rules);
+            }
+
+            List<EgressRule> configured = new ArrayList<EgressRule>(rules);
+            configured.add(new DefaultEgressRule());
+            return new EgressPolicyEngine(configured);
         }
     }
 }

@@ -9,6 +9,46 @@ public final class EgressRules {
     private EgressRules() {
     }
 
+    public static EgressRule allow(Key<?> key,
+                                   EgressSink sink,
+                                   String purpose,
+                                   String reasonCode) {
+        return forKeyAndPurpose(key, sink, purpose, EgressAction.ALLOW, reasonCode);
+    }
+
+    public static EgressRule tokenize(Key<?> key,
+                                      EgressSink sink,
+                                      String purpose,
+                                      String reasonCode) {
+        return forKeyAndPurpose(key, sink, purpose, EgressAction.TOKENIZE, reasonCode);
+    }
+
+    public static EgressRule redact(Key<?> key,
+                                    EgressSink sink,
+                                    String reasonCode) {
+        return forKey(key, sink, EgressAction.REDACT, reasonCode);
+    }
+
+    public static EgressRule redact(Key<?> key,
+                                    EgressSink sink,
+                                    String purpose,
+                                    String reasonCode) {
+        return forKeyAndPurpose(key, sink, purpose, EgressAction.REDACT, reasonCode);
+    }
+
+    public static EgressRule deny(Key<?> key,
+                                  EgressSink sink,
+                                  String reasonCode) {
+        return forKey(key, sink, EgressAction.DENY, reasonCode);
+    }
+
+    public static EgressRule deny(Key<?> key,
+                                  EgressSink sink,
+                                  String purpose,
+                                  String reasonCode) {
+        return forKeyAndPurpose(key, sink, purpose, EgressAction.DENY, reasonCode);
+    }
+
     /**
      * Convenience rule for restrictive actions. Positive egress decisions must
      * use a purpose-scoped rule.

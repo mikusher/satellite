@@ -24,6 +24,16 @@ public final class EgressProcessor {
         this.tokenizer = tokenizer;
     }
 
+    public static EgressProcessor secureDefaults() {
+        return new EgressProcessor(EgressPolicyEngine.secureDefaults());
+    }
+
+    public EgressReport process(EgressEnvelope envelope,
+                                EgressSink sink,
+                                String purpose) {
+        return process(envelope, EgressContext.of(sink, purpose));
+    }
+
     public EgressReport process(EgressEnvelope envelope, EgressContext context) {
         Objects.requireNonNull(envelope, "envelope");
         Objects.requireNonNull(context, "context");
