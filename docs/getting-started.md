@@ -226,9 +226,8 @@ public class RuntimeMetadataExample {
                         .put(
                                 search,
                                 "admin\nDROP TABLE users",
-                                ValueMetadata.of(
-                                        DataOrigin.USER_INPUT,
-                                        TrustLevel.UNTRUSTED))
+                                DataOrigin.USER_INPUT,
+                                TrustLevel.UNTRUSTED)
                         .build();
 
         EgressPolicyEngine policy =
@@ -241,16 +240,15 @@ public class RuntimeMetadataExample {
                                         .action(EgressAction.REDACT)
                                         .reasonCode("UNTRUSTED_INPUT_REDACTED")
                                         .build())
-                        .add(new DefaultEgressRule())
+                        .withSecureDefaults()
                         .build();
 
         EgressReport result =
                 new EgressProcessor(policy)
                         .process(
                                 input,
-                                EgressContext.of(
-                                        EgressSink.LOG,
-                                        "diagnostics"));
+                                EgressSink.LOG,
+                                "diagnostics");
 
         System.out.println(result.getOutput());
         System.out.println(result.getDecisions().get(0).getReasonCode());
@@ -694,8 +692,6 @@ import com.mikusher.parameter.SatelliteData;
 
 import io.github.mikusher.satellite.bridge.*;
 import io.github.mikusher.satellite.egress.*;
-
-import java.util.Arrays;
 
 public class BridgeExample {
 
