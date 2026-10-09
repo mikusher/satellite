@@ -28,7 +28,7 @@
     <maven.compiler.target>11</maven.compiler.target>
     <junit.version>4.13.2</junit.version>
     <commons.compress.version>1.28.0</commons.compress.version>
-    <jackson.version>2.22.2</jackson.version>
+    <jackson.version>2.22.3</jackson.version>
     <json.version>20260814</json.version>
     <lombok.version>1.18.48</lombok.version>
     <commons.io.version>2.22.0</commons.io.version>
