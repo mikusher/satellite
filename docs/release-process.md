@@ -19,7 +19,7 @@ A stable release must meet the conditions in [release readiness](release-readine
 
 The normal GitHub `Dependency Review` job may display success **without running the review**, because it skips when the Dependency Graph SBOM endpoint is not available. A recent workflow returned HTTP **404**, so dependency vulnerability coverage is **not verified**.
 
-Run the [Release security preflight](../.github/workflows/release-security-preflight.yml) manually against the intended release commit. It fails if:
+Run the [Release security preflight](../.github/workflows/release-security-preflight.yml) manually against the intended release commit **before authorizing the release**. The same verification is also reused by the Maven publishing workflow and is now a required predecessor of its `publish` job. It fails if:
 
 - the GitHub Dependency Graph endpoint is unavailable;
 - Dependabot open alerts cannot be retrieved with the workflow token;
@@ -30,7 +30,7 @@ Only the counts of advisory severities are printed, never advisory payloads or c
 
 The manual workflow uses the standard GitHub Actions token by default. If it lacks permission to read Dependabot alerts, configure an optional repository Actions secret named `RELEASE_SECURITY_TOKEN` with narrowly scoped **read** access to the repository's Dependabot alerts; this token is never printed. Do not grant package publication permissions to this read-only gate.
 
-The security preflight does not publish anything and does not replace CodeQL, dependency policy review or independent audit.
+The security preflight does not publish anything and does not replace CodeQL, dependency policy review or independent audit. **When a GitHub Release is published, the `Maven Package` workflow cannot reach `mvn deploy` unless its security job has succeeded.** This is an automated enforcement boundary, not just a checklist.
 
 ## Version and tag contract
 
