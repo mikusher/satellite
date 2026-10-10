@@ -65,16 +65,11 @@ public class SatelliteData implements DataMap {
      * associated with this map.
      *
      * @param map
-     *            An external map used to store the elements.
-     *
+     *            A string-keyed map used as the backing store; mutations are shared.
      *
      ***************************************************************************/
-    public SatelliteData(Map map) {
-
-        // TODO: Change this constructor. At this moment this is kept as is to
-        // give additional compatibility
-        _params = map;
-        _paramInfoMap = null;
+    public SatelliteData(Map<String, Object> map) {
+        this(map, false);
     }
 
 
@@ -164,7 +159,7 @@ public class SatelliteData implements DataMap {
 
         List<Object> cloned;
         try {
-            cloned = array.getClass().newInstance();
+            cloned = array.getClass().getDeclaredConstructor().newInstance();
         } catch (InstantiationException ie) {
             cloned = new ArrayList<>(array.size());
         } catch (Exception ex) {
@@ -488,7 +483,7 @@ public class SatelliteData implements DataMap {
 
         final SatelliteData cloned;
         try {
-            cloned = this.getClass().newInstance();
+            cloned = this.getClass().getDeclaredConstructor().newInstance();
         } catch (Exception ex) {
             throw new SatelliteError(ex.toString(), ex);
         }
@@ -531,79 +526,79 @@ public class SatelliteData implements DataMap {
      *
      ***************************************************************************/
     private Entry internalGet(String paramName) {
-
         if (paramName == null) {
             return null;
         }
 
-        // must verify if the paramName is present on the keys (containsKey)
         Object value = _params.getOrDefault(paramName, NOT_FOUND);
         if (value != NOT_FOUND) {
             return new Entry(value);
         }
 
         char[] buffer = paramName.toCharArray();
-        if (buffer.length < 3 || buffer[0] == '.' || buffer[0] == '(' || buffer[buffer.length - 1] == '.' || buffer[buffer.length - 1] == '(') {
+        if (buffer.length < 3 || buffer[0] == '.' || buffer[0] == '('
+                || buffer[buffer.length - 1] == '.'
+                || buffer[buffer.length - 1] == '(') {
             return null;
         }
 
         Object holder = this;
         int last = 0;
-        boolean arr = false;
-        boolean outArr = false;
+        boolean inArray = false;
+        boolean afterArray = false;
+
         try {
             for (int i = 1; i < buffer.length; i++) {
                 switch (buffer[i]) {
                     case '(':
                     case '.':
-                        if (!outArr && (arr || last == i)) {
+                        if (!afterArray && (inArray || last == i)) {
                             return null;
                         }
-
-                        if (!outArr) {
+                        if (!afterArray) {
+                            if (!(holder instanceof SatelliteData)) {
+                                return null;
+                            }
                             holder = ((SatelliteData) holder)._params.get(paramName.substring(last, i));
                         }
-
                         last = i + 1;
-                        outArr = false;
-                        arr = (buffer[i] == '(');
+                        afterArray = false;
+                        inArray = (buffer[i] == '(');
                         break;
                     case ')':
-                        if (!arr || last == i) {
+                        if (!inArray || last == i || !(holder instanceof List)) {
                             return null;
                         }
-
-                        holder = ((List) holder).get(Integer.parseInt(paramName.substring(last, i)));
+                        int index = Integer.parseInt(paramName.substring(last, i));
+                        holder = ((List<?>) holder).get(index);
                         last = i + 1;
-                        arr = false;
-                        outArr = true;
+                        inArray = false;
+                        afterArray = true;
                         break;
                     default:
-                        if (outArr) {
+                        if (afterArray) {
                             return null;
                         }
                 }
             }
 
-            if (arr || last == 0) {
+            if (inArray || last == 0) {
                 return null;
             }
 
-            if (last < buffer.length) {
-                String tmp = paramName.substring(last);
-                if (holder != null) {
-                    value = ((SatelliteData) holder)._params.getOrDefault(tmp, NOT_FOUND);
-                    if (value != NOT_FOUND) {
-                        return new Entry(value);
-                    }
-                }
-            } else {
+            if (last == buffer.length) {
                 return new Entry(holder);
             }
-        } catch (Exception e) {
-        }
+            if (!(holder instanceof SatelliteData)) {
+                return null;
+            }
 
-        return null;
+            value = ((SatelliteData) holder)._params.getOrDefault(
+                    paramName.substring(last), NOT_FOUND);
+            return value == NOT_FOUND ? null : new Entry(value);
+        } catch (NumberFormatException | IndexOutOfBoundsException invalidPath) {
+            return null;
+        }
     }
 
     /***************************************************************************
@@ -737,23 +732,7 @@ public class SatelliteData implements DataMap {
         }
     }
 
-    /***************************************************************************
-     *
-     * Sets the value of a parameter.
-     *
-     * @param paramName
-     *            The name of the parameter being set.
-     *
-     * @param paramValue
-     *            The new value of the parameter.
-     *
-     *
-     ***************************************************************************/
-    @Deprecated
-    public void setParameterNoCheck(String paramName, Object paramValue) {
 
-        _params.put(paramName, paramValue);
-    }
 
     /***************************************************************************
      *
@@ -856,32 +835,7 @@ public class SatelliteData implements DataMap {
         return getOrDefaultTypedParameter(ParameterTypes.String, paramName, defaultValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a <code>String</code>.
-     * If the element identified by the <code>paramName</code> key is not a
-     * <code>java.lang.String</code> then an <code> {@link IncorrectTypeException}</code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>String</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a string object.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public String getAsString(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        return getTypedParameter(ParameterTypes.String, paramName);
-    }
 
     /***************************************************************************
      *
@@ -977,34 +931,7 @@ public class SatelliteData implements DataMap {
         return getOrDefaultTypedParameter(ParameterTypes.Integer, paramName, defaultValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as an integer value. If the
-     * element identified by <code>paramName</code> is not a
-     * <code>java.lang.Integer</code> then an <code> {@link IncorrectTypeException}</code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The integer value which is the value associated with the
-     *         <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not an int value or null
-     *                value.
-     *
-     ***************************************************************************/
 
-    @Deprecated
-    public Integer getAsInteger(String paramName) throws UnknownParameterException, IncorrectTypeException {
-
-        return getTypedParameter(ParameterTypes.Integer, paramName);
-    }
 
     /***************************************************************************
      *
@@ -1081,33 +1008,7 @@ public class SatelliteData implements DataMap {
         return getOrDefaultTypedParameter(ParameterTypes.Long, paramName, defaultValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a long value. If the
-     * element identified by the <code>paramName</code> key is not a
-     * <code>java.lang.Long</code> then an <code>{@link IncorrectTypeException} </code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>String</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a long value or null
-     *                value.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public Long getAsLong(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        return getTypedParameter(ParameterTypes.Long, paramName);
-    }
 
     /***************************************************************************
      *
@@ -1239,33 +1140,7 @@ public class SatelliteData implements DataMap {
         return getOrDefaultTypedParameter(ParameterTypes.Decimal, paramName, defaultValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a long value. If the
-     * element identified by the <code>paramName</code> key is not a
-     * <code>java.lang.BigDecimal</code> then an <code> {@link IncorrectTypeException} </code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>String</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a long value or null
-     *                value.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public BigDecimal getAsDecimal(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        return getTypedParameter(ParameterTypes.Decimal, paramName);
-    }
 
     /***************************************************************************
      *
@@ -1313,8 +1188,7 @@ public class SatelliteData implements DataMap {
      ***************************************************************************/
     @Override
     public float getFloat(String paramName) throws UnknownParameterException, IncorrectTypeException {
-
-        return getAsFloat(paramName);
+        return (Float) ParameterTypes.Float.cast(getParameter(paramName));
     }
 
     /***************************************************************************
@@ -1341,35 +1215,7 @@ public class SatelliteData implements DataMap {
         return getOrDefaultTypedParameter(ParameterTypes.Float, paramName, defaultValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a float value. If the
-     * element identified by the <code>paramName</code> key is not a
-     * <code>java.lang.Float</code> then an <code>{@link IncorrectTypeException} </code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>Float</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a float value or null
-     *                value.
-     *
-     * @deprecated
-     ***************************************************************************/
-    @Deprecated
-    public Float getAsFloat(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        Object value = getParameter(paramName);
-        return (Float) ParameterTypes.Float.cast(value);
-    }
 
     /***************************************************************************
      *
@@ -1445,33 +1291,7 @@ public class SatelliteData implements DataMap {
         return getOrDefaultTypedParameter(ParameterTypes.Double, paramName, defaultValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a double value. If the
-     * element identified by the <code>paramName</code> key is not a
-     * <code>java.lang.Double</code> then an <code> {@link IncorrectTypeException}</code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>String</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a double value or null
-     *                value.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public Double getAsDouble(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        return getTypedParameter(ParameterTypes.Double, paramName);
-    }
 
     /***************************************************************************
      *
@@ -1548,33 +1368,7 @@ public class SatelliteData implements DataMap {
         return getOrDefaultTypedParameter(ParameterTypes.Boolean, paramName, defaultValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a boolean value. If the
-     * element identified by the <code>paramName</code> key is not a
-     * <code>java.lang.Boolean</code> then an <code> {@link IncorrectTypeException}</code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>String</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a boolean value or null
-     *                value.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public Boolean getAsBoolean(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        return getTypedParameter(ParameterTypes.Boolean, paramName);
-    }
 
     /***************************************************************************
      *
@@ -1598,34 +1392,7 @@ public class SatelliteData implements DataMap {
         setParameter(paramName, paramValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a
-     * <code>SatelliteData</code> object. If the element identified by the
-     * <code>paramName</code> key is not a <code>SatelliteData</code> then an
-     * <code>{@link IncorrectTypeException}</code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>String</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a
-     *                <code>SatelliteData</code> object.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public SatelliteData getAsMap(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        return getTypedParameter(ParameterTypes.Map, paramName);
-    }
 
     /***************************************************************************
      *
@@ -1679,10 +1446,10 @@ public class SatelliteData implements DataMap {
      *
      * @exception IncorrectTypeException
      *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a string object.
+     *                <code>paramName</code> key is not a SatelliteData object.
      *
      ***************************************************************************/
-    public SatelliteData getDoubleOrDefault(String paramName, SatelliteData defaultValue) throws IncorrectTypeException {
+    public SatelliteData getDataOrDefault(String paramName, SatelliteData defaultValue) throws IncorrectTypeException {
 
         return getOrDefaultTypedParameter(ParameterTypes.Map, paramName, defaultValue);
     }
@@ -1709,28 +1476,7 @@ public class SatelliteData implements DataMap {
         setParameter(paramName, paramValue);
     }
 
-    /***************************************************************************
-     *
-     * Sets the value of a parameter. If this map is constrained and none of its
-     * keys may be <code>paramName</code> then an <code> {@link UnknownParameterException}</code> is thrown.
-     *
-     * @param paramName
-     *            The name of the parameter to change.
-     *
-     * @param paramValue
-     *            The new value to assign to the parameter.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if this map is constrained and it has no parameter
-     *                named <code>paramName</code>.
-     *
-     *                NOTE: This is only needed to ensure binary compatibility
-     *                with previous code
-     ***************************************************************************/
-    public void setMap(String paramName, SatelliteData paramValue) throws UnknownParameterException {
 
-        setParameter(paramName, paramValue);
-    }
 
     /***************************************************************************
      *
@@ -1807,34 +1553,7 @@ public class SatelliteData implements DataMap {
         return getArray(classObj, paramName);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a
-     * <code>java.util.List</code> object. If the element identified by the
-     * <code>paramName</code> key is not a <code>java.util.List</code> then an
-     * <code>{@link IncorrectTypeException}</code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>String</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a
-     *                <code>java.util.List</code> object.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public List getAsArray(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        return getTypedParameter(ParameterTypes.Array, paramName);
-    }
 
     /***************************************************************************
      *
@@ -1858,33 +1577,7 @@ public class SatelliteData implements DataMap {
         setParameter(paramName, paramValue);
     }
 
-    /***************************************************************************
-     *
-     * Fetches the value of one of this map elements as a <code>Date</code>. If
-     * the element identified by the <code>paramName</code> key is not a
-     * <code>java.util.Date</code> then an <code>{@link IncorrectTypeException} </code> will be thrown.
-     *
-     * @param paramName
-     *            The key associated with the value to retrieve.
-     *
-     * @return The <code>String</code> object which is the value associeted with
-     *         the <code>paramName</code> key.
-     *
-     * @exception UnknownParameterException
-     *                Thrown if there is no element having
-     *                <code>paramName</code> as key.
-     *
-     * @exception IncorrectTypeException
-     *                Thrown if the value associated with the
-     *                <code>paramName</code> key is not a
-     *                <code>java.util.Date</code> object.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public Date getAsDate(String paramName) throws UnknownParameterException, IncorrectTypeException {
 
-        return getTypedParameter(ParameterTypes.Date, paramName);
-    }
 
     /***************************************************************************
      *
@@ -2173,20 +1866,7 @@ public class SatelliteData implements DataMap {
         return buffer.toString();
     }
 
-    /***************************************************************************
-     *
-     * Fetches the number of elements in this map.
-     *
-     * @return The number of current elements.
-     *
-     * @deprecated Use <code>{@link #size()}</code> instead.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public int count() {
 
-        return (_params != null) ? _params.size() : 0;
-    }
 
     /***************************************************************************
      *

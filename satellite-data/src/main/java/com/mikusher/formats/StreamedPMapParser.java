@@ -147,7 +147,8 @@ public class StreamedPMapParser {
 
         try {
             value.close();
-        } catch (XMLStreamException e) {
+        } catch (XMLStreamException ignored) {
+            // Cleanup is best-effort: do not hide the original parse/write outcome.
         }
     }
 
@@ -155,7 +156,8 @@ public class StreamedPMapParser {
 
         try {
             value.close();
-        } catch (XMLStreamException e) {
+        } catch (XMLStreamException ignored) {
+            // Cleanup is best-effort: do not hide the original parse/write outcome.
         }
     }
 
@@ -177,18 +179,7 @@ public class StreamedPMapParser {
     public static XMLStreamReader getXMLTreeByArray(XMLStreamReader xmlStreamReader, PMapType tagType,
                                                     SatelliteData keyValues)
             throws XMLStreamException {
-
-        XMLStreamReader result = null;
-
-        do {
-            xmlStreamReader.next();
-            if (xmlStreamReader.isStartElement()) {
-                result = getXMLTreeByTree(xmlStreamReader, tagType, keyValues);
-            }
-        } while (xmlStreamReader.hasNext() && !xmlStreamReader.isEndElement()
-                && xmlStreamReader.getEventType() != XMLStreamConstants.END_DOCUMENT && result == null);
-
-        return result;
+        return findMatchingChild(xmlStreamReader, tagType, keyValues);
     }
 
     /**
@@ -203,17 +194,28 @@ public class StreamedPMapParser {
     public static XMLStreamReader getXMLTreeByMap(XMLStreamReader xmlStreamReader, PMapType tagType,
                                                   SatelliteData keyValues)
             throws XMLStreamException {
+        return findMatchingChild(xmlStreamReader, tagType, keyValues);
+    }
 
-        XMLStreamReader result = null;
-        do {
-            xmlStreamReader.next();
-            if (xmlStreamReader.isStartElement()) {
-                result = getXMLTreeByTree(xmlStreamReader, tagType, keyValues);
+    private static XMLStreamReader findMatchingChild(XMLStreamReader reader,
+                                                     PMapType tagType,
+                                                     SatelliteData keyValues)
+            throws XMLStreamException {
+        // The reader starts on the enclosing array/map element.
+        // Track its depth so an unmatched child's closing tag does not stop the search.
+        int depth = 1;
+        while (depth > 0 && reader.hasNext()) {
+            int event = reader.next();
+            if (event == XMLStreamConstants.START_ELEMENT) {
+                if (matchXMLTree(reader, tagType, keyValues)) {
+                    return reader;
+                }
+                depth++;
+            } else if (event == XMLStreamConstants.END_ELEMENT) {
+                depth--;
             }
-        } while (xmlStreamReader.hasNext() && !xmlStreamReader.isEndElement()
-                && xmlStreamReader.getEventType() != XMLStreamConstants.END_DOCUMENT && result == null);
-
-        return result;
+        }
+        return null;
     }
 
     /**
