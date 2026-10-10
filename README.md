@@ -139,7 +139,7 @@ Custom processors remain available when you need your own policies, redactors or
 | `RESTRICTED` | deny unless explicitly authorized |
 | `CREDENTIAL` / `SECRET` | deny |
 
-Satellite also fails closed when no policy matches, requires sink + purpose for positive rules, blocks raw sensitive values in observability, and omits denied values from approved output.
+Satellite also fails closed when no policy matches or evaluation fails, requires sink + purpose for positive rules, blocks raw sensitive values in observability, and **rejects raw unclassified nested objects**. Denied values never enter approved output.
 
 ## Modules
 

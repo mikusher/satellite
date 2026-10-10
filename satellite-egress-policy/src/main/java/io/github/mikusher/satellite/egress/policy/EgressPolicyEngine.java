@@ -4,6 +4,10 @@ import io.github.mikusher.satellite.egress.DataCategory;
 import io.github.mikusher.satellite.egress.DataClassification;
 import io.github.mikusher.satellite.egress.SatelliteEntry;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.temporal.TemporalAccessor;
+import java.util.UUID;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -31,9 +35,27 @@ public final class EgressPolicyEngine {
         Objects.requireNonNull(entry, "entry");
 
         for (EgressRule rule : rules) {
-            Optional<PolicyDecision> decision = rule.evaluate(context, entry);
+            final Optional<PolicyDecision> decision;
+            try {
+                decision = rule.evaluate(context, entry);
+            } catch (RuntimeException failure) {
+                return PolicyDecision.deny(
+                        "POLICY_EVALUATION_FAILED",
+                        "Egress denied because policy evaluation failed");
+            }
+            if (decision == null) {
+                return PolicyDecision.deny(
+                        "INVALID_POLICY_RESULT",
+                        "Egress denied because a policy returned no result");
+            }
             if (decision.isPresent()) {
-                return applyNonBypassableGuardrails(context, entry, decision.get());
+                PolicyDecision resolved = decision.get();
+                if (resolved == null) {
+                    return PolicyDecision.deny(
+                            "INVALID_POLICY_RESULT",
+                            "Egress denied because a policy returned no decision");
+                }
+                return applyNonBypassableGuardrails(context, entry, resolved);
             }
         }
 
@@ -45,7 +67,19 @@ public final class EgressPolicyEngine {
     private static PolicyDecision applyNonBypassableGuardrails(EgressContext context,
                                                                 SatelliteEntry<?> entry,
                                                                 PolicyDecision decision) {
-        if (decision.getAction() != EgressAction.ALLOW || !isObservabilitySink(context.getSink())) {
+        if (decision.getAction() != EgressAction.ALLOW) {
+            return decision;
+        }
+
+        // An outer PUBLIC label cannot authorize unclassified nested fields.
+        // Only a known scalar can leave an egress boundary raw.
+        if (!isSafeScalar(entry.getValue())) {
+            return PolicyDecision.deny(
+                    "UNCLASSIFIED_COMPLEX_VALUE_DENIED",
+                    "Composite values require individual classification before raw egress");
+        }
+
+        if (!isObservabilitySink(context.getSink())) {
             return decision;
         }
 
@@ -61,6 +95,23 @@ public final class EgressPolicyEngine {
         }
 
         return decision;
+    }
+
+    private static boolean isSafeScalar(Object value) {
+        if (value == null || value instanceof String
+                || value instanceof Boolean || value instanceof Character
+                || value instanceof Byte || value instanceof Short
+                || value instanceof Integer || value instanceof Long
+                || value instanceof Float || value instanceof Double
+                || value instanceof BigInteger || value instanceof BigDecimal
+                || value instanceof UUID || value instanceof Enum) {
+            return true;
+        }
+
+        // java.time value types are immutable. Do not whitelist arbitrary
+        // Object.toString(), mutable Maps, Collections, arrays or POJOs.
+        return value instanceof TemporalAccessor
+                && value.getClass().getName().startsWith("java.time.");
     }
 
     private static boolean isObservabilitySink(EgressSink sink) {

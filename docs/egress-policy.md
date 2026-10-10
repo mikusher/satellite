@@ -192,6 +192,32 @@ DENY [OBSERVABILITY_RAW_SENSITIVE_DENIED]
 
 The convenience API therefore cannot bypass the same guardrail enforced for detailed `PolicyRule` definitions.
 
+## Structured values require classification
+
+An explicit `ALLOW` is not permission to export an unclassified object graph. Raw `Map`, `List`, array and arbitrary POJO values are denied with `UNCLASSIFIED_COMPLEX_VALUE_DENIED`, even when the outer key is `PUBLIC`. Classify each outbound leaf with its own `Key<T>` instead.
+
+```java
+Key<String> orderId = Key.string("order.id")
+        .classifiedAs(DataClassification.PUBLIC);
+
+Key<String> customerEmail = Key.string("customer.email")
+        .classifiedAs(DataClassification.CONFIDENTIAL)
+        .category(DataCategory.PERSONAL_DATA);
+
+EgressEnvelope envelope = EgressEnvelope.builder()
+        .put(orderId, "ORDER-9001")
+        .put(customerEmail, "customer@example.com")
+        .build();
+```
+
+## Extension failure behavior
+
+A custom `EgressRule` that throws or returns null fails closed (`POLICY_EVALUATION_FAILED` or `INVALID_POLICY_RESULT`). No exception message containing protected data is included in violations.
+
+The `Redactor` interface returns a `String`. Custom redaction and tokenization results are rejected if they are null, blank, contain control characters or simply echo the raw scalar input. The respective decisions are `INVALID_REDACTION_OUTPUT` and `INVALID_TOKEN_OUTPUT`.
+
+Built-in transforms are preferable to ad hoc implementations, because it is not possible to automatically prove that an arbitrary replacement string contains no sensitive information.
+
 ## Processing failures fail closed
 
 If redaction throws, the processor changes the action to:
