@@ -2,6 +2,7 @@ package com.mikusher.parameter;
 
 import com.google.common.base.Function;
 import com.mikusher.utils.DataMap;
+import com.mikusher.error.IncorrectTypeException;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -635,8 +636,7 @@ public class SatelliteDataUtils {
 
         try {
             return (T) type.cast(value);
-        } catch (Exception e) {
-            // If the value cannot be cast we return the default value.
+        } catch (IncorrectTypeException invalidValue) {
             return defaultValue;
         }
     }
@@ -674,11 +674,7 @@ public class SatelliteDataUtils {
             return;
         }
 
-        try {
-            map.put(key, value);
-        } catch (Exception e) {
-            // If the value cannot be cast we ignore it.
-        }
+        map.put(key, value);
     }
 
 
