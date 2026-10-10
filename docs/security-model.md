@@ -144,6 +144,31 @@ The rule may instead redact, tokenize or deny the value.
 
 This guardrail applies equally to `EgressRules.allow(...)` and detailed `PolicyRule` definitions.
 
+## Composite values and nested data
+
+A `PUBLIC` key must not be used to export an unclassified object graph. A public `Map`, `List`, array or arbitrary POJO may contain secret fields that have never been classified.
+
+Satellite therefore **denies raw egress of composite or unknown value types**, even under an explicit `ALLOW` rule, with:
+
+```text
+DENY [UNCLASSIFIED_COMPLEX_VALUE_DENIED]
+```
+
+The raw egress path accepts known immutable scalar types, including strings, primitive wrappers, `BigDecimal`/`BigInteger`, UUIDs and supported `java.time` values. An explicitly redacted or tokenized composite may still cross the boundary as a safe replacement string.
+
+To export structured data, **classify every leaf independently** (for example `customer.id`, `customer.email` and `order.status`) before policy processing. An outer public label cannot validate or downgrade the classification of nested fields.
+
+## Untrusted extensions and output validation
+
+Custom policy rules, redactors and tokenizers are extension points; they are not a separate trust boundary. Satellite applies further fail-closed checks:
+
+- a policy rule that throws a runtime exception is denied with `POLICY_EVALUATION_FAILED`;
+- a rule that returns a null result is denied with `INVALID_POLICY_RESULT`;
+- redactors must return a non-blank replacement string without control characters and must not echo the original scalar value; otherwise `INVALID_REDACTION_OUTPUT`;
+- tokenizers must return a non-blank token without control characters and must not echo the original scalar value; otherwise `INVALID_TOKEN_OUTPUT`.
+
+These checks detect common configuration and implementation errors. **They cannot mathematically prove that a custom transform is private**: a redactor that returns a partially exposed secret, or a custom policy that misclassifies data, is still the application's responsibility. Use the built-in constant redactor and HMAC tokenizer where possible.
+
 ## Fail-closed behavior
 
 If no rule returns a decision, `EgressPolicyEngine` returns:

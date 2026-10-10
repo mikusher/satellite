@@ -51,7 +51,14 @@ public final class EgressProcessor {
                 output.put(entry.getKey().getName(), entry.getValue());
             } else if (action == EgressAction.REDACT) {
                 try {
-                    output.put(entry.getKey().getName(), redactor.redact(entry));
+                    String replacement = redactor.redact(entry);
+                    if (isInvalidReplacement(replacement, entry.getValue())) {
+                        action = EgressAction.DENY;
+                        reasonCode = "INVALID_REDACTION_OUTPUT";
+                        violations.add(violation(entry, context, reasonCode));
+                    } else {
+                        output.put(entry.getKey().getName(), replacement);
+                    }
                 } catch (RuntimeException failure) {
                     action = EgressAction.DENY;
                     reasonCode = "REDACTION_FAILED";
@@ -64,7 +71,14 @@ public final class EgressProcessor {
                     violations.add(violation(entry, context, reasonCode));
                 } else {
                     try {
-                        output.put(entry.getKey().getName(), tokenizer.tokenize(entry));
+                        String replacement = tokenizer.tokenize(entry);
+                        if (isInvalidReplacement(replacement, entry.getValue())) {
+                            action = EgressAction.DENY;
+                            reasonCode = "INVALID_TOKEN_OUTPUT";
+                            violations.add(violation(entry, context, reasonCode));
+                        } else {
+                            output.put(entry.getKey().getName(), replacement);
+                        }
                     } catch (RuntimeException failure) {
                         action = EgressAction.DENY;
                         reasonCode = "TOKENIZATION_FAILED";
@@ -82,6 +96,25 @@ public final class EgressProcessor {
         }
 
         return new EgressReport(output, decisions, violations);
+    }
+
+    private static boolean isInvalidReplacement(String replacement, Object original) {
+        if (replacement == null || replacement.trim().isEmpty()) {
+            return true;
+        }
+        for (int i = 0; i < replacement.length(); i++) {
+            if (Character.isISOControl(replacement.charAt(i))) {
+                return true;
+            }
+        }
+        if (original instanceof CharSequence
+                || original instanceof Number
+                || original instanceof Boolean
+                || original instanceof Character
+                || original instanceof Enum) {
+            return replacement.equals(String.valueOf(original));
+        }
+        return false;
     }
 
     private static PrivacyViolation violation(SatelliteEntry<?> entry,

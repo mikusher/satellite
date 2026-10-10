@@ -16,7 +16,7 @@ public final class ConstantRedactor implements Redactor {
     }
 
     @Override
-    public Object redact(SatelliteEntry<?> entry) {
+    public String redact(SatelliteEntry<?> entry) {
         return marker;
     }
 }
