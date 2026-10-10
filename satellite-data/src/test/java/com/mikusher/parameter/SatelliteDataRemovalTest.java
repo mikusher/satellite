@@ -37,7 +37,7 @@ public class SatelliteDataRemovalTest {
     }
 
     @Test
-    public void removesLiteralNullValuedKeysWithoutTouchingOtherFields() {
+    public void removesLiteralNullValuedKeysWithoutTouchingOtherFields() throws Exception {
         SatelliteData data = new SatelliteData();
         data.put("nested.field", null);
         data.put("other", 7);
