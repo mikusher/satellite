@@ -7,14 +7,14 @@ import java.util.*;
 
 public class DataDefinition {
 
-    private final Map<String, ParameterInfo> _map;
+    private final Map<String, ParameterInfo> definitionsByName;
 
-    private String _name = "";
-    private String _description = "";
+    private String definitionName = "";
+    private String definitionDescription = "";
 
     public DataDefinition() {
 
-        _map = new LinkedHashMap<>();
+        definitionsByName = new LinkedHashMap<>();
     }
 
 
@@ -25,9 +25,9 @@ public class DataDefinition {
      ***************************************************************************/
     public DataDefinition(DataDefinition infoMap) {
         Objects.requireNonNull(infoMap, "infoMap");
-        _map = new LinkedHashMap<>(infoMap._map);
-        _name = infoMap._name;
-        _description = infoMap._description;
+        definitionsByName = new LinkedHashMap<>(infoMap.definitionsByName);
+        definitionName = infoMap.definitionName;
+        definitionDescription = infoMap.definitionDescription;
     }
 
 
@@ -57,8 +57,8 @@ public class DataDefinition {
 
         this();
 
-        _name = name;
-        _description = description;
+        definitionName = name;
+        definitionDescription = description;
     }
 
 
@@ -89,7 +89,7 @@ public class DataDefinition {
      ***************************************************************************/
     public void add(ParameterInfo paramInfo) {
 
-        _map.put(paramInfo.getName(), paramInfo);
+        definitionsByName.put(paramInfo.getName(), paramInfo);
     }
 
 
@@ -420,7 +420,7 @@ public class DataDefinition {
      ***************************************************************************/
     ParameterInfo get(String paramName) {
 
-        return _map.get(paramName);
+        return definitionsByName.get(paramName);
     }
 
 
@@ -432,7 +432,7 @@ public class DataDefinition {
      ***************************************************************************/
     public Iterator<String> list() {
 
-        return _map.keySet().iterator();
+        return definitionsByName.keySet().iterator();
     }
 
 
@@ -447,7 +447,7 @@ public class DataDefinition {
      ***************************************************************************/
     public Iterator<ParameterInfo> iterator() {
 
-        return _map.values().iterator();
+        return definitionsByName.values().iterator();
     }
 
 
@@ -464,7 +464,7 @@ public class DataDefinition {
      ***************************************************************************/
     public boolean containsParameter(String paramName) {
 
-        return _map.containsKey(paramName);
+        return definitionsByName.containsKey(paramName);
     }
 
     /***************************************************************************
@@ -473,7 +473,7 @@ public class DataDefinition {
      ***************************************************************************/
     public String getName() {
 
-        return _name;
+        return definitionName;
     }
 
     /***************************************************************************
@@ -482,7 +482,7 @@ public class DataDefinition {
      ***************************************************************************/
     public void setName(String name) {
 
-        _name = name;
+        definitionName = name;
     }
 
     /***************************************************************************
@@ -491,7 +491,7 @@ public class DataDefinition {
      ***************************************************************************/
     public String getDescription() {
 
-        return _description;
+        return definitionDescription;
     }
 
     /***************************************************************************
@@ -500,7 +500,7 @@ public class DataDefinition {
      ***************************************************************************/
     public void setDescription(String description) {
 
-        _description = description;
+        definitionDescription = description;
     }
 
 

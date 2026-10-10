@@ -25,8 +25,8 @@ public class SatelliteData implements DataMap {
 
     protected static final Object NOT_FOUND = new Object();
 
-    protected Map<String, Object> _params = null;
-    protected DataDefinition _paramInfoMap = null;
+    protected Map<String, Object> valuesByName = null;
+    protected DataDefinition definition = null;
 
 
     /***************************************************************************
@@ -44,15 +44,15 @@ public class SatelliteData implements DataMap {
 
     public SatelliteData(int initialCapacity) {
 
-        _params = new HashMap<>(initialCapacity);
-        _paramInfoMap = null;
+        valuesByName = new HashMap<>(initialCapacity);
+        definition = null;
     }
 
 
-    public SatelliteData(DataDefinition paramInfoMap) {
+    public SatelliteData(DataDefinition constraints) {
 
-        _params = new HashMap<>();
-        _paramInfoMap = paramInfoMap;
+        valuesByName = new HashMap<>();
+        definition = constraints;
 
         reset();
     }
@@ -89,11 +89,11 @@ public class SatelliteData implements DataMap {
     public SatelliteData(Map<String, Object> map, boolean copyInputMap) {
 
         if (copyInputMap) {
-            _params = new HashMap<>(map);
+            valuesByName = new HashMap<>(map);
         } else {
-            _params = map;
+            valuesByName = map;
         }
-        _paramInfoMap = null;
+        definition = null;
     }
 
 
@@ -101,7 +101,7 @@ public class SatelliteData implements DataMap {
      *
      * Initializes this <code>SatelliteData</code> to use an external
      * <code>java.util.Map</code> as repository. The set of permissible entries
-     * will be constrained by the <code>paramInfoMap</code> <code> {@link DataDefinition}</code>.
+     * will be constrained by the <code>constraints</code> <code> {@link DataDefinition}</code>.
      *
      * <p>If a mandatory parameter is not present in <code>map</code> then a
      * <code>JafException</code> is thrown. If an optional parameter is missing
@@ -110,7 +110,7 @@ public class SatelliteData implements DataMap {
      * @param map
      *            An external map used to store the elements.
      *
-     * @param paramInfoMap
+     * @param constraints
      *            The set of constraints on the elements this
      *            <code>SatelliteData</code> may contain. If null there will be
      *            no constraint on the parameters.
@@ -118,13 +118,13 @@ public class SatelliteData implements DataMap {
      * @exception SatelliteException
      *                Thrown when the siplied <code>map</code> does not contain
      *                a mandatory parameter as specified by
-     *                <code>paramInfoMap</code>.
+     *                <code>constraints</code>.
      *
      ***************************************************************************/
-    public SatelliteData(Map<String, Object> map, DataDefinition paramInfoMap) throws SatelliteException {
+    public SatelliteData(Map<String, Object> map, DataDefinition constraints) throws SatelliteException {
 
-        _params = map;
-        setConstraints(paramInfoMap);
+        valuesByName = map;
+        setConstraints(constraints);
     }
 
     protected static Object cloneObject(Object value) {
@@ -181,7 +181,7 @@ public class SatelliteData implements DataMap {
             return map1;
         }
 
-        for (Map.Entry<String, Object> entry : map1._params.entrySet()) {
+        for (Map.Entry<String, Object> entry : map1.valuesByName.entrySet()) {
 
             Object mapObj1 = entry.getValue();
             Object mapObj2 = map2.getParameterNoCheck(entry.getKey());
@@ -208,7 +208,7 @@ public class SatelliteData implements DataMap {
             }
         }
 
-        for (Map.Entry<String, Object> entry : map2._params.entrySet()) {
+        for (Map.Entry<String, Object> entry : map2.valuesByName.entrySet()) {
             final String paramName = entry.getKey();
             if (!map1.containsKey(paramName)) {
                 map1.setParameter(paramName, entry.getValue());
@@ -282,40 +282,40 @@ public class SatelliteData implements DataMap {
     /***************************************************************************
      *
      * Specifies the constraints for this <code>SatelliteData</code>. The
-     * <code>paramInfoMap</code> constraints specify the keys and associated
+     * <code>constraints</code> constraints specify the keys and associated
      * values that may be stored in this map.
      *
      * <p>If a mandatory parameter is not present then a
      * <code>JafException</code> is thrown. If an optional parameter is missing
      * then one is created having the default value.</p>
      *
-     * @param paramInfoMap
+     * @param constraints
      *            The set of new constraints for this map.
      *
      ***************************************************************************/
-    public void setConstraints(DataDefinition paramInfoMap) throws SatelliteException {
+    public void setConstraints(DataDefinition constraints) throws SatelliteException {
 
-        _paramInfoMap = paramInfoMap;
-        if (_paramInfoMap == null) {
+        definition = constraints;
+        if (definition == null) {
             return;
         }
 
-        for (Iterator<ParameterInfo> it = _paramInfoMap.iterator(); it.hasNext(); ) {
+        for (Iterator<ParameterInfo> it = definition.iterator(); it.hasNext(); ) {
             ParameterInfo paramInfo = it.next();
             String paramName = paramInfo.getName();
 
-            Object value = _params.getOrDefault(paramName, NOT_FOUND);
+            Object value = valuesByName.getOrDefault(paramName, NOT_FOUND);
             if (value != NOT_FOUND) {
                 Object newValue = paramInfo.getParameterType().cast(value);
                 if (value != newValue) {
-                    _params.put(paramName, newValue);
+                    valuesByName.put(paramName, newValue);
                 }
             } else {
                 if (paramInfo.isMandatory()) {
                     throw new UnknownParameterException(paramName);
                 }
 
-                _params.put(paramName, paramInfo.getDefaultValue());
+                valuesByName.put(paramName, paramInfo.getDefaultValue());
             }
         }
     }
@@ -326,13 +326,13 @@ public class SatelliteData implements DataMap {
      * validate its current contents. Validation is delayed until one of the
      * <code>getXxx(...)</code> methods is invoked.
      *
-     * @param paramInfoMap
+     * @param constraints
      *            The new set of constraints for this map.
      *
      ***************************************************************************/
-    public void assignConstraints(DataDefinition paramInfoMap) {
+    public void assignConstraints(DataDefinition constraints) {
 
-        _paramInfoMap = paramInfoMap;
+        definition = constraints;
     }
 
     /***************************************************************************
@@ -344,17 +344,17 @@ public class SatelliteData implements DataMap {
      ***************************************************************************/
     private void reset() {
 
-        _params.clear();
-        if (_paramInfoMap == null) {
+        valuesByName.clear();
+        if (definition == null) {
             return;
         }
 
-        for (Iterator<ParameterInfo> i = _paramInfoMap.iterator(); i.hasNext(); ) {
+        for (Iterator<ParameterInfo> i = definition.iterator(); i.hasNext(); ) {
             ParameterInfo paramInfo = i.next();
             if (!paramInfo.isMandatory()) {
                 String name = paramInfo.getName();
                 Object defVal = paramInfo.getDefaultValue();
-                _params.put(name, defVal);
+                valuesByName.put(name, defVal);
             }
         }
     }
@@ -377,7 +377,7 @@ public class SatelliteData implements DataMap {
             throw new SatelliteError(ex.toString(), ex);
         }
 
-        for (Map.Entry<String, Object> entry : _params.entrySet()) {
+        for (Map.Entry<String, Object> entry : valuesByName.entrySet()) {
             cloned.put(entry.getKey(), cloneObject(entry.getValue()));
         }
 
@@ -401,11 +401,11 @@ public class SatelliteData implements DataMap {
             return entry.getValue();
         }
 
-        if (_paramInfoMap == null) {
+        if (definition == null) {
             return NOT_FOUND;
         }
 
-        ParameterInfo paramInfo = _paramInfoMap.get(paramName);
+        ParameterInfo paramInfo = definition.get(paramName);
         return paramInfo == null || paramInfo.isMandatory() ? NOT_FOUND : paramInfo.getDefaultValue();
     }
 
@@ -419,7 +419,7 @@ public class SatelliteData implements DataMap {
             return null;
         }
 
-        Object value = _params.getOrDefault(paramName, NOT_FOUND);
+        Object value = valuesByName.getOrDefault(paramName, NOT_FOUND);
         if (value != NOT_FOUND) {
             return new Entry(value);
         }
@@ -448,7 +448,7 @@ public class SatelliteData implements DataMap {
                             if (!(holder instanceof SatelliteData)) {
                                 return null;
                             }
-                            holder = ((SatelliteData) holder)._params.get(paramName.substring(last, i));
+                            holder = ((SatelliteData) holder).valuesByName.get(paramName.substring(last, i));
                         }
                         last = i + 1;
                         afterArray = false;
@@ -482,7 +482,7 @@ public class SatelliteData implements DataMap {
                 return null;
             }
 
-            value = ((SatelliteData) holder)._params.getOrDefault(
+            value = ((SatelliteData) holder).valuesByName.getOrDefault(
                     paramName.substring(last), NOT_FOUND);
             return value == NOT_FOUND ? null : new Entry(value);
         } catch (NumberFormatException | IndexOutOfBoundsException invalidPath) {
@@ -507,7 +507,7 @@ public class SatelliteData implements DataMap {
      ***************************************************************************/
     public Object getParameterNoCheck(String paramName) {
 
-        return _params.get(paramName);
+        return valuesByName.get(paramName);
     }
 
     /***************************************************************************
@@ -533,20 +533,20 @@ public class SatelliteData implements DataMap {
     @Override
     public void setParameter(String paramName, Object paramValue) throws UnknownParameterException {
 
-        if (_paramInfoMap != null && !_paramInfoMap.containsParameter(paramName)) {
+        if (definition != null && !definition.containsParameter(paramName)) {
             throw new UnknownParameterException(paramName);
         }
 
-        Object value = _params.getOrDefault(paramName, NOT_FOUND);
+        Object value = valuesByName.getOrDefault(paramName, NOT_FOUND);
         if (value != NOT_FOUND) {
-            _params.put(paramName, paramValue);
+            valuesByName.put(paramName, paramValue);
             return;
         }
 
         char[] buffer = paramName.toCharArray();
         // if name can't be a valid nested expression, use the literal name directly
         if (buffer.length < 3 || buffer[0] == '.' || buffer[0] == '(' || buffer[buffer.length - 1] == '.' || buffer[buffer.length - 1] == '(') {
-            _params.put(paramName, paramValue);
+            valuesByName.put(paramName, paramValue);
             return;
         }
 
@@ -567,7 +567,7 @@ public class SatelliteData implements DataMap {
                             if (!(holder instanceof SatelliteData)) {
                                 throw new UnknownParameterException(paramName);
                             }
-                            holder = ((SatelliteData) holder)._params.get(paramName.substring(last, i));
+                            holder = ((SatelliteData) holder).valuesByName.get(paramName.substring(last, i));
                         }
                         last = i + 1;
                         outArr = false;
@@ -611,20 +611,20 @@ public class SatelliteData implements DataMap {
             }
 
             if (inArrayIndex || last == 0) {
-                _params.put(paramName, paramValue);
+                valuesByName.put(paramName, paramValue);
                 return;
             }
 
             // put it in the structure
             if (holder != null) {
-                ((SatelliteData) holder)._params.put(paramName.substring(last), paramValue);
+                ((SatelliteData) holder).valuesByName.put(paramName.substring(last), paramValue);
             } else {
-                _params.put(paramName, paramValue);
+                valuesByName.put(paramName, paramValue);
             }
         } catch (UnknownParameterException | ClassCastException
                  | NumberFormatException | IndexOutOfBoundsException invalidPath) {
             // Invalid paths remain literal keys; unrelated mutation failures propagate.
-            _params.put(paramName, paramValue);
+            valuesByName.put(paramName, paramValue);
         }
     }
 
@@ -651,9 +651,9 @@ public class SatelliteData implements DataMap {
         }
 
         // no tree involved check for default values
-        if (_paramInfoMap != null && _paramInfoMap.containsParameter(param)) {
+        if (definition != null && definition.containsParameter(param)) {
             try {
-                ParameterInfo paramInfo = _paramInfoMap.getParameterInfo(param);
+                ParameterInfo paramInfo = definition.getParameterInfo(param);
                 if (paramInfo.isMandatory()) {
                     return false;
                 }
@@ -678,7 +678,7 @@ public class SatelliteData implements DataMap {
     @Override
     public Iterator<String> getParameterNames() {
 
-        return _params.keySet().iterator();
+        return valuesByName.keySet().iterator();
     }
 
     /***************************************************************************
@@ -1638,8 +1638,8 @@ public class SatelliteData implements DataMap {
     public void remove(String paramName) throws UnknownParameterException {
         Objects.requireNonNull(paramName, "paramName");
 
-        if (_params.containsKey(paramName)) {
-            _params.remove(paramName);
+        if (valuesByName.containsKey(paramName)) {
+            valuesByName.remove(paramName);
             return;
         }
 
@@ -1666,7 +1666,7 @@ public class SatelliteData implements DataMap {
                         if (!(holder instanceof SatelliteData)) {
                             return;
                         }
-                        holder = ((SatelliteData) holder)._params.get(paramName.substring(last, i));
+                        holder = ((SatelliteData) holder).valuesByName.get(paramName.substring(last, i));
                     }
                     last = i + 1;
                     afterArray = false;
@@ -1705,7 +1705,7 @@ public class SatelliteData implements DataMap {
         }
 
         if (!inArray && last > 0 && holder instanceof SatelliteData) {
-            ((SatelliteData) holder)._params.remove(paramName.substring(last));
+            ((SatelliteData) holder).valuesByName.remove(paramName.substring(last));
         }
     }
 
@@ -1789,7 +1789,7 @@ public class SatelliteData implements DataMap {
     @Override
     public boolean containsValue(Object value) {
 
-        return _params.containsValue(value);
+        return valuesByName.containsValue(value);
     }
 
     /***************************************************************************
@@ -1800,7 +1800,7 @@ public class SatelliteData implements DataMap {
     @Override
     public Set<Map.Entry<String, Object>> entrySet() {
 
-        return _params.entrySet();
+        return valuesByName.entrySet();
     }
 
     /***************************************************************************
@@ -1811,7 +1811,7 @@ public class SatelliteData implements DataMap {
     @Override
     public boolean equals(Object o) {
 
-        return (o == this) || _params.equals(o);
+        return (o == this) || valuesByName.equals(o);
     }
 
     /***************************************************************************
@@ -1822,7 +1822,7 @@ public class SatelliteData implements DataMap {
     @Override
     public Object get(Object key) {
 
-        return _params.get(key);
+        return valuesByName.get(key);
     }
 
     /***************************************************************************
@@ -1833,7 +1833,7 @@ public class SatelliteData implements DataMap {
     @Override
     public int hashCode() {
 
-        return _params.hashCode();
+        return valuesByName.hashCode();
     }
 
     /***************************************************************************
@@ -1844,7 +1844,7 @@ public class SatelliteData implements DataMap {
     @Override
     public boolean isEmpty() {
 
-        return _params.isEmpty();
+        return valuesByName.isEmpty();
     }
 
     /***************************************************************************
@@ -1855,7 +1855,7 @@ public class SatelliteData implements DataMap {
     @Override
     public Set<String> keySet() {
 
-        return _params.keySet();
+        return valuesByName.keySet();
     }
 
     /***************************************************************************
@@ -1866,7 +1866,7 @@ public class SatelliteData implements DataMap {
     @Override
     public Object put(String key, Object value) {
 
-        return _params.put(key, value);
+        return valuesByName.put(key, value);
     }
 
     /***************************************************************************
@@ -1877,7 +1877,7 @@ public class SatelliteData implements DataMap {
     @Override
     public Object remove(Object key) {
 
-        return _params.remove(key);
+        return valuesByName.remove(key);
     }
 
     /***************************************************************************
@@ -1888,7 +1888,7 @@ public class SatelliteData implements DataMap {
     @Override
     public int size() {
 
-        return _params.size();
+        return valuesByName.size();
     }
 
     /***************************************************************************
@@ -1899,73 +1899,73 @@ public class SatelliteData implements DataMap {
     @Override
     public Collection<Object> values() {
 
-        return _params.values();
+        return valuesByName.values();
     }
 
     @Override
     public Object getOrDefault(Object key, Object defaultValue) {
 
-        return _params.getOrDefault(key, defaultValue);
+        return valuesByName.getOrDefault(key, defaultValue);
     }
 
     @Override
     public void forEach(BiConsumer<? super String, ? super Object> action) {
 
-        _params.forEach(action);
+        valuesByName.forEach(action);
     }
 
     @Override
     public void replaceAll(BiFunction<? super String, ? super Object, ?> function) {
 
-        _params.replaceAll(function);
+        valuesByName.replaceAll(function);
     }
 
     @Override
     public Object putIfAbsent(String key, Object value) {
 
-        return _params.putIfAbsent(key, value);
+        return valuesByName.putIfAbsent(key, value);
     }
 
     @Override
     public boolean remove(Object key, Object value) {
 
-        return _params.remove(key, value);
+        return valuesByName.remove(key, value);
     }
 
     @Override
     public boolean replace(String key, Object oldValue, Object newValue) {
 
-        return _params.replace(key, oldValue, newValue);
+        return valuesByName.replace(key, oldValue, newValue);
     }
 
     @Override
     public Object replace(String key, Object value) {
 
-        return _params.replace(key, value);
+        return valuesByName.replace(key, value);
     }
 
     @Override
     public Object computeIfAbsent(String key, Function<? super String, ?> mappingFunction) {
 
-        return _params.computeIfAbsent(key, mappingFunction);
+        return valuesByName.computeIfAbsent(key, mappingFunction);
     }
 
     @Override
     public Object computeIfPresent(String key, BiFunction<? super String, ? super Object, ?> remappingFunction) {
 
-        return _params.computeIfPresent(key, remappingFunction);
+        return valuesByName.computeIfPresent(key, remappingFunction);
     }
 
     @Override
     public Object compute(String key, BiFunction<? super String, ? super Object, ?> remappingFunction) {
 
-        return _params.compute(key, remappingFunction);
+        return valuesByName.compute(key, remappingFunction);
     }
 
     @Override
     public Object merge(String key, Object value, BiFunction<? super Object, ? super Object, ?> remappingFunction) {
 
-        return _params.merge(key, value, remappingFunction);
+        return valuesByName.merge(key, value, remappingFunction);
     }
 
     /***************************************************************************
@@ -1981,7 +1981,7 @@ public class SatelliteData implements DataMap {
     @Override
     public void putAll(Map<? extends String, ? extends Object> map) {
 
-        _params.putAll(map);
+        valuesByName.putAll(map);
     }
 
     @Override
