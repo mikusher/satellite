@@ -1188,8 +1188,7 @@ public class SatelliteData implements DataMap {
      ***************************************************************************/
     @Override
     public float getFloat(String paramName) throws UnknownParameterException, IncorrectTypeException {
-
-        return getAsFloat(paramName);
+        return (Float) ParameterTypes.Float.cast(getParameter(paramName));
     }
 
     /***************************************************************************
