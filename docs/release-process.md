@@ -66,7 +66,7 @@ This verifies local Maven-repository resolution, **not** upload permissions, reg
 When all gates are approved:
 
 1. Create a dedicated release PR for the agreed version (for example `2.0.0-rc.1`) and update **all seven module parent versions** together with the root POM.
-2. Review CHANGELOG/release notes and Java compatibility support.
+2. Review the draft [CHANGELOG](../CHANGELOG.md), release notes and Java compatibility support.
 3. Merge the versioned release PR only after required checks pass.
 4. Create the matching tag (for example `v2.0.0-rc.1`) on that exact commit.
 5. With explicit maintainer approval, publish the corresponding GitHub Release and monitor the Maven Package workflow.
