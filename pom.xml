@@ -28,13 +28,13 @@
     <maven.compiler.target>11</maven.compiler.target>
     <junit.version>4.13.2</junit.version>
     <commons.compress.version>1.28.0</commons.compress.version>
-    <jackson.version>2.22.2</jackson.version>
+    <jackson.version>2.22.3</jackson.version>
     <json.version>20260814</json.version>
     <lombok.version>1.18.48</lombok.version>
     <commons.io.version>2.22.0</commons.io.version>
     <commons.codec.version>1.22.1</commons.codec.version>
-    <commons.lang3.version>3.20.0</commons.lang3.version>
-    <guava.version>33.7.1-jre</guava.version>
+    <commons.lang3.version>3.21.0</commons.lang3.version>
+    <guava.version>33.7.2-jre</guava.version>
     <slf4j.version>2.0.20</slf4j.version>
     <opentelemetry.version>1.66.0</opentelemetry.version>
     <cyclonedx.version>2.9.3</cyclonedx.version>
