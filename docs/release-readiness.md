@@ -29,7 +29,7 @@ Validate what can be verified without modifying runtime behavior:
 | Version and artifact publication | **Blocked intentionally** | POM is `2.0.0-SNAPSHOT` and no GitHub Release is published; release workflow now checks the Git tag against every module POM and has no manual publish dispatch |
 | Local Maven file-repository consumer smoke | **Verified on PR #48** | [Candidate workflow run 38092753055](https://github.com/mikusher/satellite/actions/runs/38092753055) completed successfully; separate clean Maven consumer resolved all staged artifacts, and SHA-256 inventory was uploaded | 
 | Distribution channel | Identified, not published | `distributionManagement` points to GitHub Packages; do not claim Maven Central availability |
-| Supply chain | Partially verified | SBOM/CodeQL/dependency-review/CI present; open Dependabot PRs #23–32 require individual triage and new CI on their eventual merge commits before GA |
+| Supply chain | Partially verified | Java library patch updates [#49](https://github.com/mikusher/satellite/pull/49) passed CI and were merged. Seven GitHub Actions updates (#23, #25, #26, #29–#32) remain for workflow-specific review; scanner service credentials and private alerts are not independently verified |
 | Versioned migration / compatibility / changelog | **Documented procedure; decision pending** | [Controlled release process](release-process.md) describes RC and tag checks; GA version, compatibility promise and changelog still require approval |
 
 ## Live-boundary verification (PR #47)
@@ -71,7 +71,7 @@ mvn --batch-mode --no-transfer-progress -DskipTests install
 mvn --batch-mode --no-transfer-progress -f verification/pom.xml verify
 ```
 
-The CI also runs the consumer project independently on Java 11 and 21. It tests an application workflow crossing Satellite Data → bridge → Egress policy → JSON/log/trace adapters and adversarial cases. No live API call, logger backend or tracing collector is required.
+The CI runs the consumer project independently on Java 11 and 21, including Satellite Data → bridge → Egress policy → JSON/log/trace adapters, adversarial cases, real Logback backend events, an in-memory OpenTelemetry SDK exporter and loopback HTTP. No externally hosted service or production credential is required.
 
 ## Preliminary JMH baseline
 
@@ -101,6 +101,10 @@ A run in shared CI provides a *diagnostic baseline only*. It is not a throughput
 6. Version finalized (not `-SNAPSHOT`), release notes/changelog, compatibility and supported-Java policy documented.
 7. Candidate dry run green; GitHub Packages credentials and authenticated artifact fetch still need a controlled, approved release candidate; no Maven Central promise without a separate publishing workflow.
 8. Explicit maintainer approval to publish.
+
+## Draft release notes
+
+A provisional, unpublished list of Satellite 2.x changes is maintained in [CHANGELOG.md](../CHANGELOG.md). It is not a release tag, a publishing approval or a stability/compatibility commitment.
 
 ## Current decision
 

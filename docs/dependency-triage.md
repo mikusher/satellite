@@ -1,16 +1,16 @@
 # Dependency update triage — 2026-10-10
 
-This is a **review record**, not evidence that any upgrade is installed or safe. Changes must pass relevant CI/security workflows on their final merge commit. Latest reviewed open Dependabot PRs: [#23–#32](https://github.com/mikusher/satellite/pulls?q=is%3Apr+is%3Aopen+author%3Aapp%2Fdependabot).
+This records the maintenance changes and the still-open automation updates. The Java patch updates were **merged in PR #49** after passing the full check suite. The remaining seven GitHub Actions proposals are not applied. Check CI/security workflows on the actual merge commit before relying on them.
 
 ## Java library patch updates
 
 | PR | Upgrade | Recommendation |
 | --- | --- | --- |
-| [#24](https://github.com/mikusher/satellite/pull/24) | Jackson 2.22.2 → 2.22.3 | Review changelog, then test all modules and Jackson serialization/schema/adversarial behavior |
-| [#27](https://github.com/mikusher/satellite/pull/27) | Commons Lang 3.20.0 → 3.21.0 | Review changelog, then build on Java 11/17/21 |
-| [#28](https://github.com/mikusher/satellite/pull/28) | Guava 33.7.1-jre → 33.7.2-jre | Review changelog/transitives, then run full matrix and consumer tests |
+| [#24](https://github.com/mikusher/satellite/pull/24) | Jackson 2.22.2 → 2.22.3 | **Applied in [#49](https://github.com/mikusher/satellite/pull/49)**; original bot PR closed as superseded |
+| [#27](https://github.com/mikusher/satellite/pull/27) | Commons Lang 3.20.0 → 3.21.0 | **Applied in #49**; original bot PR closed as superseded |
+| [#28](https://github.com/mikusher/satellite/pull/28) | Guava 33.7.1-jre → 33.7.2-jre | **Applied in #49**; original bot PR closed as superseded |
 
-All three patches touch **only version properties in the root POM**. They are good candidates for a targeted maintenance PR, but are not approved for automatic merge based only on version numbers.
+All three changes touched **only version properties in the root POM**. The combined PR #49 passed Java 11/17/21 reactor checks, Java 11/21 independent consumers, the isolated RC simulation, Dependency Review and CodeQL before merge. These results validate the configured checks, not all possible downstream integrations.
 
 ## GitHub Actions updates
 
@@ -29,7 +29,7 @@ Some workflow PRs were originally opened against an older base commit and may ne
 ## Release relevance
 
 - Before candidate publication, re-evaluate open security alerts and dependency-review findings. Access to actual private alerts is not established by this document.
-- Merge low-risk, tested maintenance changes before freezing the candidate version; rerun all release readiness checks on the resulting commit.
+- Java patch updates are already included in the current snapshot; the remaining GitHub Actions proposals require workflow-specific validation before merging.
 - Never silently interpret a pending Dependabot PR as an applied fix.
 - No publishing or version bump is authorized by this review.
 
