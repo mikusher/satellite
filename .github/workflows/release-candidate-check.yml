@@ -1,0 +1,55 @@
+name: Release candidate dry run (no publish)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/release-candidate-check.yml'
+      - '.github/workflows/maven-publish.yml'
+      - 'scripts/check_release_tag.py'
+      - 'scripts/tests/**'
+      - 'pom.xml'
+      - 'satellite-*/pom.xml'
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      - name: Verify release preflight tests
+        run: python3 -m unittest discover -s scripts/tests -v
+
+      - name: Stage temporary 2.0.0-rc.1 versions in CI workspace only
+        run: |
+          mvn --batch-mode --no-transfer-progress \
+            org.codehaus.mojo:versions-maven-plugin:2.19.1:set \
+            -DnewVersion=2.0.0-rc.1 -DprocessAllModules=true \
+            -DgenerateBackupPoms=false
+
+      - name: Validate tag and all Maven parent versions
+        run: python3 scripts/check_release_tag.py v2.0.0-rc.1
+
+      - name: Verify candidate artifacts without publishing
+        run: mvn --batch-mode --no-transfer-progress verify
+
+      - name: Install candidate artifacts locally (never deploy)
+        run: mvn --batch-mode --no-transfer-progress -DskipTests install
+
+      - name: Verify independent consumer against candidate artifacts
+        run: |
+          mvn --batch-mode --no-transfer-progress \
+            -f verification/pom.xml \
+            -Dsatellite.version=2.0.0-rc.1 verify
