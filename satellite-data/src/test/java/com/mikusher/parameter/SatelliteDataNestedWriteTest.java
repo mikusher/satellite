@@ -37,7 +37,7 @@ public class SatelliteDataNestedWriteTest {
             // The failure must not become an unrelated literal field.
         }
 
-        assertFalse(data.containsKey("items(0)"));
+        assertFalse(data.keySet().contains("items(0)"));
         assertEquals("original", data.getParameter("items(0)"));
     }
 }
