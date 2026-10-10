@@ -675,6 +675,9 @@ public class SatelliteData implements DataMap {
                         }
 
                         if (!outArr) {
+                            if (!(holder instanceof SatelliteData)) {
+                                throw new UnknownParameterException(paramName);
+                            }
                             holder = ((SatelliteData) holder)._params.get(paramName.substring(last, i));
                         }
                         last = i + 1;
@@ -689,6 +692,9 @@ public class SatelliteData implements DataMap {
                             throw new UnknownParameterException(paramName);
                         }
 
+                        if (!(holder instanceof List)) {
+                            throw new UnknownParameterException(paramName);
+                        }
                         int arrayIndexValue = Integer.parseInt(paramName.substring(last, i));
 
                         // if we're are the end of the string set the value, either by adding the new position
@@ -726,8 +732,9 @@ public class SatelliteData implements DataMap {
             } else {
                 _params.put(paramName, paramValue);
             }
-        } catch (Exception e) {
-            // parameter not in structure so keep it
+        } catch (UnknownParameterException | ClassCastException
+                 | NumberFormatException | IndexOutOfBoundsException invalidPath) {
+            // Invalid paths remain literal keys; unrelated mutation failures propagate.
             _params.put(paramName, paramValue);
         }
     }
