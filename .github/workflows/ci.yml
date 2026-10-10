@@ -25,6 +25,9 @@ jobs:
       - name: Verify architecture boundaries
         run: python3 scripts/check_module_boundaries.py
 
+      - name: Verify release preflight contracts
+        run: python3 -m unittest discover -s scripts/tests -v
+
       - name: Set up Java
         uses: actions/setup-java@v6
         with:
