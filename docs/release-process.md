@@ -55,7 +55,11 @@ independent consumer tests against candidate artifacts
 
 **No `deploy` and no GitHub Release creation occur in the dry-run workflow.** It never changes `master` and does not create a permanent Git tag.
 
-This verifies packaging and the consumer's use of candidate coordinates, but it does **not** verify upload permissions or GitHub Packages propagation. That still needs a controlled release candidate with maintainer approval.
+The rehearsal also copies exactly the parent POM and all seven module POM/JAR pairs into an ephemeral **local file-based Maven repository**, then runs the full independent consumer test suite using a **fresh Maven cache**. This catches missing artifact coordinates and transitive parent/dependency resolution that a same-cache `mvn install` can conceal.
+
+A SHA-256 inventory of the staged artifacts is retained as a GitHub Actions artifact. The staging script never runs `mvn deploy`, accesses GitHub Packages, or publishes a Git tag.
+
+This verifies local Maven-repository resolution, **not** upload permissions, registry-side distribution, or authentication to GitHub Packages. Those still need a controlled, approved release candidate.
 
 ## Release candidate steps — future, not executed
 

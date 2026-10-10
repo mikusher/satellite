@@ -8,6 +8,8 @@ on:
       - '.github/workflows/maven-publish.yml'
       - 'scripts/check_release_tag.py'
       - 'scripts/tests/**'
+      - 'scripts/stage_local_maven_repo.py'
+      - 'verification/pom.xml'
       - 'pom.xml'
       - 'satellite-*/pom.xml'
 
@@ -53,3 +55,29 @@ jobs:
           mvn --batch-mode --no-transfer-progress \
             -f verification/pom.xml \
             -Dsatellite.version=2.0.0-rc.1 verify
+
+      - name: Stage candidate Maven coordinates in a file repository
+        run: |
+          python3 scripts/stage_local_maven_repo.py \
+            --repository "$HOME/.m2/repository" \
+            --output "$RUNNER_TEMP/satellite-staged" \
+            --version 2.0.0-rc.1 \
+            --manifest "$RUNNER_TEMP/satellite-inventory-sha256.txt"
+
+      - name: Verify clean consumer resolves staged Maven artifacts
+        run: |
+          REPO_URI="$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve().as_uri())' "$RUNNER_TEMP/satellite-staged")"
+          mvn --batch-mode --no-transfer-progress \
+            -Dmaven.repo.local="$RUNNER_TEMP/satellite-fresh-consumer-m2" \
+            -f verification/pom.xml \
+            -Pisolated-staging \
+            -Dsatellite.staging.url="$REPO_URI" \
+            -Dsatellite.version=2.0.0-rc.1 verify
+
+      - name: Upload isolated staging inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: satellite-candidate-staging-sha256
+          path: ${{ runner.temp }}/satellite-inventory-sha256.txt
+          if-no-files-found: warn
