@@ -30,6 +30,7 @@ Validate what can be verified without modifying runtime behavior:
 | Local Maven file-repository consumer smoke | **Verified on PR #48** | [Candidate workflow run 38092753055](https://github.com/mikusher/satellite/actions/runs/38092753055) completed successfully; separate clean Maven consumer resolved all staged artifacts, and SHA-256 inventory was uploaded | 
 | Distribution channel | Identified, not published | `distributionManagement` points to GitHub Packages; do not claim Maven Central availability |
 | Supply chain | **Blocked: Dependency Graph unavailable** | PR #50 Dependency Review job returned success **but skipped the actual review step**: SBOM availability check returned HTTP 404. Java library patches were merged in #49 and tested by the other gates; that does **not** establish vulnerability-review coverage. Enable the graph/alerts and pass the separate release security preflight. |
+| CodeQL/checkout Actions maintenance | **Verified on PR #51** | `actions/checkout@v7` and `actions/setup-java@v6` updated in CodeQL; CodeQL passed. Old Dependabot PRs #23/#30 closed as superseded. The Dependency Review workflow now states clearly when its actual scan is skipped. | 
 | Versioned migration / compatibility / changelog | **Documented procedure; decision pending** | [Controlled release process](release-process.md) describes RC and tag checks; GA version, compatibility promise and changelog still require approval |
 
 ## Live-boundary verification (PR #47)
