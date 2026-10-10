@@ -26,6 +26,18 @@
     <dependency><groupId>ch.qos.logback</groupId><artifactId>logback-classic</artifactId><version>1.5.38</version><scope>test</scope></dependency>
     <dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-sdk-testing</artifactId><version>1.66.0</version><scope>test</scope></dependency>
   </dependencies>
+  <!-- This profile is opt-in: normal consumer verification remains unchanged. -->
+  <profiles>
+    <profile>
+      <id>isolated-staging</id>
+      <repositories>
+        <repository>
+          <id>satellite-staged-file-repository</id>
+          <url>${satellite.staging.url}</url>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
   <build>
     <plugins>
       <plugin>
