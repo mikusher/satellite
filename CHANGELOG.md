@@ -21,6 +21,7 @@ Changes intended for Satellite 2.x. **Unreleased / draft:** this document is not
 - Build and verification on Java 11, 17 and 21, with independent external-consumer tests on Java 11/21.
 - Release-candidate *dry-run*, local staged Maven repository with clean consumer resolution, and JMH diagnostic baseline.
 - Three patch dependency updates (Jackson 2.22.3, Commons Lang 3.21.0, Guava 33.7.2-jre) in PR #49.
+- CodeQL runner Action updates and an explicit manual dependency-security release gate in PR #51, with fail-closed alert checks. The normal Dependency Review workflow now reports when its review was skipped.
 
 ### Security guarantees under test
 
@@ -35,7 +36,7 @@ Changes intended for Satellite 2.x. **Unreleased / draft:** this document is not
 
 - No stable version or GitHub Release has been published.
 - GitHub Packages upload permissions, fresh authenticated artifact retrieval, and externally hosted production logging/telemetry/network endpoints are not yet validated.
-- Remaining GitHub Actions dependency updates and any private security alerts still require maintainer review.
+- Five remaining third-party GitHub Actions updates and any private security alerts still require maintainer review. The Dependency Graph returned HTTP 404 during CI; release security evidence is blocked until the graph/alert APIs become accessible.
 - Final supported compatibility policy and release approval remain pending.
 
 See [release readiness](docs/release-readiness.md) for gates and evidence.

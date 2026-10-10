@@ -1,6 +1,6 @@
 # Dependency update triage — 2026-10-10
 
-This records the maintenance changes and the still-open automation updates. The Java patch updates were **merged in PR #49** after passing the full check suite. The remaining seven GitHub Actions proposals are not applied. Check CI/security workflows on the actual merge commit before relying on them.
+This records the maintenance changes and the still-open automation updates. The Java patch updates were **merged in PR #49** after passing the full check suite. Two GitHub Actions updates were integrated in [PR #51](https://github.com/mikusher/satellite/pull/51), closing bot PRs #23 and #30 as superseded. Five third-party Action proposals remain open. Check CI/security workflows on the actual merge commit before relying on them.
 
 ## Java library patch updates
 
@@ -16,8 +16,8 @@ All three changes touched **only version properties in the root POM**. The combi
 
 | PR | Upgrade | Recommended verification |
 | --- | --- | --- |
-| [#23](https://github.com/mikusher/satellite/pull/23) | setup-java v4 → v6 in CodeQL workflow | Applied in the separate build hardening PR only once its CodeQL run is green |
-| [#30](https://github.com/mikusher/satellite/pull/30) | checkout v4 → v7 in CodeQL and dependency review | Verify both workflows; overlaps the files in #23. **Dependency review remains skipped** if the graph is unavailable |
+| [#23](https://github.com/mikusher/satellite/pull/23) | setup-java v4 → v6 in CodeQL workflow | **Applied in #51**, with CodeQL success; original Dependabot PR closed as superseded |
+| [#30](https://github.com/mikusher/satellite/pull/30) | checkout v4 → v7 in CodeQL and dependency review | **Applied in #51**; original Dependabot PR closed. Dependency Review still skips while Dependency Graph returns HTTP 404 |
 | [#29](https://github.com/mikusher/satellite/pull/29) | dependency-review-action v4 → v5 | Check permissions and dependency-review outcome |
 | [#26](https://github.com/mikusher/satellite/pull/26) | first-interaction v1 → v3 | Check greeting job on first issues/PRs |
 | [#25](https://github.com/mikusher/satellite/pull/25) | SonarQube scan action v8.2.1 → v8.3.0 | Requires real SonarQube configuration/secrets; CI alone may not exercise it |
@@ -33,7 +33,7 @@ The Dependency Graph endpoint returned HTTP **404** in the PR #50 workflow, so t
 ## Release relevance
 
 - Before candidate publication, re-evaluate open security alerts and dependency-review findings. Access to actual private alerts is not established by this document.
-- Java patch updates are already included in the current snapshot; the remaining GitHub Actions proposals require workflow-specific validation before merging.
+- Java patch updates are already included in the current snapshot; the remaining five GitHub Actions proposals (#25, #26, #29, #31, #32) require workflow-specific validation before merging.
 - Never silently interpret a pending Dependabot PR as an applied fix.
 - No publishing or version bump is authorized by this review.
 
