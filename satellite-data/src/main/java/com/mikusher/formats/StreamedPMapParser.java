@@ -10,7 +10,6 @@ import com.mikusher.parameter.SatelliteData;
 import com.mikusher.parameter.SatelliteDataUtils;
 import com.mikusher.utils.PMapReadPlugin;
 import com.mikusher.utils.StaxUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.DocumentFragment;
 import org.w3c.dom.Node;
@@ -21,7 +20,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.*;
 import java.io.*;
-import java.lang.ref.WeakReference;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
@@ -32,7 +30,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.function.IntFunction;
 
 public class StreamedPMapParser {
 
@@ -41,17 +38,11 @@ public class StreamedPMapParser {
     static final String ATT_TYPE = "type";
     static final String ENCODING = "UTF-8";
     static final String VERSION = "1.0";
-    private static final String TAG_PARAMETER = "parameter";
-    private static final String ATT_NAME = "name";
-    private static final DateTimeFormatter DATE_FORMATTER =
+    static final String ATT_NAME = "name";
+    static final DateTimeFormatter DATE_FORMATTER =
             DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
     private static final Charset CHARSET = Charset.forName(ENCODING);
     private static final ThreadLocal<StreamedPMapParser> _threadLocalData = ThreadLocal.withInitial(StreamedPMapParser::new);
-    private static final int MAX_INDENT_LEVEL_CACHE = 256;
-    @SuppressWarnings("unchecked")
-    private static final WeakReference<String>[] _indentCache = new WeakReference[MAX_INDENT_LEVEL_CACHE];
-    private static final IntFunction<String> INDENT_STRING_GENERATOR = i -> "\n"
-            + StringUtils.repeat('\t', i);
     private final PMapParserLimits _limits;
     private final Map<String, PMapReadPlugin> _plugins;
 
@@ -115,32 +106,6 @@ public class StreamedPMapParser {
         do {
             reader.next();
         } while (reader.getEventType() != XMLStreamReader.START_ELEMENT);
-    }
-
-    private static void indentLevel(SerializationType serType, XMLStreamWriter writer, int level)
-            throws XMLStreamException {
-
-        if (!serType.ident()) {
-            return;
-        }
-
-        writer.writeCharacters(getIndentLevelFromCache(level));
-    }
-
-    private static String getIndentLevelFromCache(int level) {
-
-        if (level >= MAX_INDENT_LEVEL_CACHE) {
-            return INDENT_STRING_GENERATOR.apply(level);
-        }
-
-        WeakReference<String> container = _indentCache[level];
-        String value = container == null ? null : container.get();
-        if (value == null) {
-            value = INDENT_STRING_GENERATOR.apply(level);
-            _indentCache[level] = new WeakReference<>(value);
-        }
-
-        return value;
     }
 
     private static void closeQuietly(XMLStreamReader value) {
@@ -685,103 +650,19 @@ public class StreamedPMapParser {
         throw new XMLStreamException("unknown pmap format");
     }
 
-        public void XMLWriterToMapWithoutRoot(SerializationType serType, XMLStreamWriter writer, Map<String, Object> map)
+    public void XMLWriterToMapWithoutRoot(SerializationType serType,
+                                           XMLStreamWriter writer,
+                                           Map<String, Object> map)
             throws XMLStreamException {
-
         XMLWriterToMapWithoutRoot(serType, writer, map, 0);
     }
 
-    public void XMLWriterToMapWithoutRoot(SerializationType serType, XMLStreamWriter writer, Map<String, ?> map,
-                                          int level)
+    public void XMLWriterToMapWithoutRoot(SerializationType serType,
+                                           XMLStreamWriter writer,
+                                           Map<String, ?> map,
+                                           int level)
             throws XMLStreamException {
-
-        Collection<String> keys = map.keySet();
-
-        if (serType.ident()) {
-            List<String> tmp = new ArrayList<>(map.keySet());
-            Collections.sort(tmp);
-            keys = tmp;
-        }
-
-        int levelBelow = level + 1;
-        for (String key : keys) {
-            XMLWriterToValue(serType, writer, key, map.get(key), levelBelow);
-        }
-
-        indentLevel(serType, writer, level);
-    }
-
-    private void XMLWriterToList(SerializationType serType, XMLStreamWriter writer, Collection<?> list, int level)
-            throws XMLStreamException {
-
-        int levelBelow = level + 1;
-
-        for (Object value : list) {
-            XMLWriterToValue(serType, writer, null, value, levelBelow);
-        }
-        indentLevel(serType, writer, level);
-    }
-
-    @SuppressWarnings("unchecked")
-    private void XMLWriterToValue(SerializationType serType, XMLStreamWriter writer, String key, Object value,
-                                  int level)
-            throws XMLStreamException {
-
-        PMapType type = PMapType.lookup(value);
-        if (type == null) {
-            if (serType.ignoreUnknownTypes()) {
-                // Just ignore this value because it's not supported
-                return;
-            }
-            throw new XMLStreamException("Invalid Type - " + value.getClass().getCanonicalName());
-        }
-
-        if (serType.getVersion() == 1) {
-            writer.writeStartElement(TAG_PARAMETER);
-            writer.writeAttribute(ATT_TYPE, type.getOldPMapName());
-            if (key != null) {
-                writer.writeAttribute(ATT_NAME, key);
-            }
-        } else {
-            indentLevel(serType, writer, level);
-            writer.writeStartElement(type.getShortName());
-            if (key != null) {
-                writer.writeAttribute(ATT_NAME_SHORT, key);
-            }
-        }
-
-        switch (type) {
-            case STRING:
-            case LONG:
-            case INT:
-            case FLOAT:
-            case DOUBLE:
-            case BOOLEAN:
-            case DECIMAL:
-                writeSimpleValue(writer, type, value);
-                break;
-            case MAP:
-                XMLWriterToMapWithoutRoot(serType, writer, (Map<String, Object>) value, level);
-                break;
-            case ARRAY:
-                XMLWriterToList(serType, writer, (Collection<?>) value, level);
-                break;
-            case DATE:
-                writeSimpleValue(
-                        writer,
-                        type,
-                        DATE_FORMATTER.format(((Date) value).toInstant().atOffset(ZoneOffset.UTC)));
-                break;
-            case NULL:
-                break;
-        }
-        writer.writeEndElement();
-
-    }
-
-    private void writeSimpleValue(XMLStreamWriter writer, PMapType type, Object value) throws XMLStreamException {
-
-        writer.writeCharacters(String.valueOf(value));
+        PMapXmlWriter.writeMapContent(serType, writer, map, level);
     }
 
     public Object parseValueLeaf(String value, PMapType ptype) throws ParseException {
