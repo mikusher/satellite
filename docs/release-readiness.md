@@ -25,11 +25,32 @@ Validate what can be verified without modifying runtime behavior:
 | Composite/unclassified value deny, redactor/tokenizer fail-closed | Existing regression tests | PR #45 merged; check `CompositeDataLeakTest`, `UnclassifiedCompositeEgressTest` and `TransformationOutputGuardrailTest` |
 | External consumer compiles and tests Java 11 / 21 | **Verified on PR #46** | The standalone Maven project compiled and passed all four JUnit tests on Java 11 and 21 after correcting an inaccurate JSON expectation |
 | Reproducible microbenchmark baseline | **Initial diagnostic run captured** | [JMH workflow run](https://github.com/mikusher/satellite/actions/runs/38090940750), Java 21, raw JSON artifact, see preliminary timings below |
-| Live SLF4J backend / OpenTelemetry exporter / external HTTP integrations | **Not verified** | Current tests prepare approved output; require environment-backed contract tests before claiming end-to-end production validation |
-| Version and artifact publication | **Blocked** | POM is `2.0.0-SNAPSHOT`, release workflow rejects snapshots; no published GitHub Release was found |
+| Logback / OpenTelemetry SDK / local HTTP boundaries | **Verified in PR #47 CI** | Independent Java 11/21 tests capture Logback events, SDK-exported spans and real HTTP requests to a loopback server; remote collectors and production gateways remain unverified |
+| Version and artifact publication | **Blocked intentionally** | POM is `2.0.0-SNAPSHOT` and no GitHub Release is published; release workflow now checks the Git tag against every module POM and has no manual publish dispatch |
 | Distribution channel | Identified, not published | `distributionManagement` points to GitHub Packages; do not claim Maven Central availability |
-| Supply chain | Partially verified | SBOM/CodeQL/CI present; review open dependency update PRs and any alerts before GA |
-| Versioned migration / compatibility / changelog | **Decision pending** | Choose release artifact coordinates, compatibility promise, SemVer/changelog and supported Java matrix |
+| Supply chain | Partially verified | SBOM/CodeQL/dependency-review/CI present; open Dependabot PRs #23–32 require individual triage and new CI on their eventual merge commits before GA |
+| Versioned migration / compatibility / changelog | **Documented procedure; decision pending** | [Controlled release process](release-process.md) describes RC and tag checks; GA version, compatibility promise and changelog still require approval |
+
+## Live-boundary verification (PR #47)
+
+The independent consumer has three additional integration tests executed in CI on Java 11 and 21:
+
+- **Logback:** records a real backend `ILoggingEvent` through `Slf4jEgressLogger.info(...)` and asserts that email and credentials do not appear raw.
+- **OpenTelemetry SDK:** ends a real span and inspects `SpanData` emitted by an `InMemorySpanExporter`; the confidential value is redacted and the credential absent.
+- **Loopback HTTP:** uses Java 11 `HttpClient` to deliver a JSON payload to an actual server bound to `127.0.0.1`. The payment-provider purpose permits explicitly authorized email/token fields; the analytics purpose receives only the public order ID.
+
+These results verify actual library-to-backend interactions. They **do not prove** behaviour with a production log aggregator, remote OTLP collector or external payment endpoint. Satellite requires callers to pass policy-approved output to their HTTP clients; it does not intercept arbitrary network calls.
+
+## Release candidate dry run (PR #47)
+
+A separate workflow stages **`2.0.0-rc.1` inside the ephemeral CI checkout** and verifies:
+
+1. root/module Maven coordinates are updated together and match the expected Git tag;
+2. release-tag validation and its negative/positive unit tests;
+3. complete candidate `mvn verify` and local `mvn install`;
+4. independent consumer tests using `-Dsatellite.version=2.0.0-rc.1`.
+
+**The dry-run CI job passed.** It never executes `mvn deploy` or creates a GitHub Release. GitHub Packages upload credentials and fetch from a fresh authenticated machine remain release-candidate gates.
 
 ## Reproduce the consumer gate
 
@@ -67,13 +88,13 @@ A run in shared CI provides a *diagnostic baseline only*. It is not a throughput
 2. Independent consumer tests green on Java 11 and 21.
 3. CodeQL and dependency/security reviews assessed with no unresolved release-blocking findings.
 4. JMH baseline recorded on a known Java version/runner; investigation of any obvious anomalies.
-5. Production-representative integration tests for intended logging provider/exporter and HTTP boundary, or explicit supported-scope limitations.
-6. Version finalized (not `-SNAPSHOT`), release notes/change log, compatibility and supported-Java policy documented.
-7. GitHub Packages credentials and publish workflow validated with a controlled release candidate; no Maven Central promise without a separate publishing workflow.
+5. Verified Logback, SDK-exporter and loopback HTTP integration plus explicit limits for production aggregators, remote OTLP collectors and external endpoints.
+6. Version finalized (not `-SNAPSHOT`), release notes/changelog, compatibility and supported-Java policy documented.
+7. Candidate dry run green; GitHub Packages credentials and authenticated artifact fetch still need a controlled, approved release candidate; no Maven Central promise without a separate publishing workflow.
 8. Explicit maintainer approval to publish.
 
 ## Current decision
 
 **NO-GO for public stable release**, independently of tests going green, while the version remains a snapshot and production/distribution validations remain incomplete.
 
-This report makes the uncertainty explicit. A clean independent consumer run and an initial JMH measurement do not remove the publication/version and live-integration blockers.
+This report makes the uncertainty explicit. The new live-boundary integrations and candidate dry run remove some testing gaps, but do **not** remove publication/version approval, real external-infrastructure and artifact-distribution blockers.
