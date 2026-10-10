@@ -2,6 +2,10 @@ name: Release security preflight (manual, no publish)
 
 on:
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      RELEASE_SECURITY_TOKEN:
+        required: false
 
 permissions:
   contents: read

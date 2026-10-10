@@ -96,7 +96,7 @@ A run in shared CI provides a *diagnostic baseline only*. It is not a throughput
 
 1. `mvn verify` green for Java 11, 17 and 21 on the exact release commit.
 2. Independent consumer tests green on Java 11 and 21.
-3. CodeQL green **and** the manual Release security preflight green on the candidate commit. Dependency Graph and accessible Dependabot alerts must be available, and unresolved high/critical alerts must be addressed. A green skipped Dependency Review job is insufficient.
+3. CodeQL green **and** the reusable Release security preflight green on the candidate commit. Maven publication now depends on this security job automatically. Dependency Graph and accessible Dependabot alerts must be available, and unresolved high/critical alerts must be addressed. A green skipped Dependency Review job is insufficient.
 4. JMH baseline recorded on a known Java version/runner; investigation of any obvious anomalies.
 5. Verified Logback, SDK-exporter and loopback HTTP integration plus explicit limits for production aggregators, remote OTLP collectors and external endpoints.
 6. Version finalized (not `-SNAPSHOT`), release notes/changelog, compatibility and supported-Java policy documented.
@@ -111,7 +111,7 @@ A provisional, unpublished list of Satellite 2.x changes is maintained in [CHANG
 
 On [PR #50](https://github.com/mikusher/satellite/pull/50), the `Dependency Review` workflow displayed a green job, but its `Review dependency changes` step was **skipped** because the preliminary GitHub SBOM request returned **HTTP 404**. This is not a completed dependency vulnerability review.
 
-A separate [Release security preflight](../.github/workflows/release-security-preflight.yml) is available as a **manual, fail-closed** workflow. It requires a successful Dependency Graph request and access to open Dependabot alerts; unknown API responses or critical/high alerts block release. The workflow has no publish step and is not a required development PR check.
+A separate [Release security preflight](../.github/workflows/release-security-preflight.yml) is available **manually** and is **automatically required before Maven publication**. It is fail-closed. It requires a successful Dependency Graph request and access to open Dependabot alerts; unknown API responses or critical/high alerts block release. The workflow has no publish step and is not a required development PR check.
 
 Before a release, enable/configure **Dependency Graph** and **Dependabot alerts** in the repository's code security settings, ensure the workflow token has access, rerun the preflight on the candidate commit, and review medium/low alerts individually. There is no authenticated alert evidence yet.
 

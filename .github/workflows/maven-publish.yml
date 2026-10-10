@@ -10,8 +10,21 @@ permissions:
   packages: write
 
 jobs:
+  security:
+    name: Enforce release security evidence
+    permissions:
+      contents: read
+      security-events: read
+    uses: ./.github/workflows/release-security-preflight.yml
+    secrets:
+      RELEASE_SECURITY_TOKEN: ${{ secrets.RELEASE_SECURITY_TOKEN }}
+
   publish:
+    needs: security
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout

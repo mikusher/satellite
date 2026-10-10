@@ -21,7 +21,7 @@ Changes intended for Satellite 2.x. **Unreleased / draft:** this document is not
 - Build and verification on Java 11, 17 and 21, with independent external-consumer tests on Java 11/21.
 - Release-candidate *dry-run*, local staged Maven repository with clean consumer resolution, and JMH diagnostic baseline.
 - Three patch dependency updates (Jackson 2.22.3, Commons Lang 3.21.0, Guava 33.7.2-jre) in PR #49.
-- CodeQL runner Action updates and an explicit manual dependency-security release gate in PR #51, with fail-closed alert checks. The normal Dependency Review workflow now reports when its review was skipped.
+- CodeQL runner Action updates and a fail-closed dependency-security gate in PR #51; Maven package publishing now enforces this security check before deployment. The normal Dependency Review workflow now reports when its review was skipped.
 
 ### Security guarantees under test
 
