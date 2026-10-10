@@ -27,7 +27,7 @@ Validate what can be verified without modifying runtime behavior:
 | Reproducible microbenchmark baseline | **Initial diagnostic run captured** | [JMH workflow run](https://github.com/mikusher/satellite/actions/runs/38090940750), Java 21, raw JSON artifact, see preliminary timings below |
 | Logback / OpenTelemetry SDK / local HTTP boundaries | **Verified in PR #47 CI** | Independent Java 11/21 tests capture Logback events, SDK-exported spans and real HTTP requests to a loopback server; remote collectors and production gateways remain unverified |
 | Version and artifact publication | **Blocked intentionally** | POM is `2.0.0-SNAPSHOT` and no GitHub Release is published; release workflow now checks the Git tag against every module POM and has no manual publish dispatch |
-| Local Maven file-repository consumer smoke | **Awaiting CI gate** | Candidate artifacts are copied to an isolated file repository; the independent consumer resolves them from a fresh Maven cache, with SHA-256 inventory retained | 
+| Local Maven file-repository consumer smoke | **Verified on PR #48** | [Candidate workflow run 38092753055](https://github.com/mikusher/satellite/actions/runs/38092753055) completed successfully; separate clean Maven consumer resolved all staged artifacts, and SHA-256 inventory was uploaded | 
 | Distribution channel | Identified, not published | `distributionManagement` points to GitHub Packages; do not claim Maven Central availability |
 | Supply chain | Partially verified | SBOM/CodeQL/dependency-review/CI present; open Dependabot PRs #23–32 require individual triage and new CI on their eventual merge commits before GA |
 | Versioned migration / compatibility / changelog | **Documented procedure; decision pending** | [Controlled release process](release-process.md) describes RC and tag checks; GA version, compatibility promise and changelog still require approval |
@@ -59,7 +59,7 @@ The candidate workflow now stages the eight Maven coordinates (one parent POM an
 
 This verification is safer and more realistic than testing only against locally installed packages. However, it **does not** test publishing to GitHub Packages, GitHub authorization, Maven Central availability or retrieval from a remote registry.
 
-The new check must pass in the PR before this gate can be marked verified.
+The new check passed on PR #48, including the independent Java consumer tests. The [staging SHA-256 inventory](https://github.com/mikusher/satellite/actions/runs/38092753055) is available as a workflow artifact.
 
 ## Reproduce the consumer gate
 
