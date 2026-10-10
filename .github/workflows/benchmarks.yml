@@ -1,0 +1,46 @@
+name: JMH baseline (non-release)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'benchmarks/**'
+      - '.github/workflows/benchmarks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install Satellite artifacts without rerunning reactor tests
+        run: mvn --batch-mode --no-transfer-progress -DskipTests install
+
+      - name: Compile independent JMH benchmarks
+        run: mvn --batch-mode --no-transfer-progress -f benchmarks/pom.xml package
+
+      - name: Run small repeatable baseline
+        run: |
+          java -jar benchmarks/target/satellite-benchmarks.jar \
+            -f 1 -wi 2 -i 3 -w 1s -r 1s -t 1 \
+            -rf json -rff benchmarks/target/jmh-results.json
+
+      - name: Upload raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: satellite-jmh-${{ github.sha }}
+          path: benchmarks/target/jmh-results.json
+          if-no-files-found: warn

@@ -161,6 +161,7 @@ Satellite Data and Egress remain independent; only the bridge knows both.
 - **[Egress Policy](docs/egress-policy.md)** — rules and custom policies
 - **[Security Model](docs/security-model.md)** — classifications and guardrails
 - **[Architecture](docs/architecture.md)** — modules and boundaries
+- **[Release Readiness](docs/release-readiness.md)** — verification gates and known gaps
 - **[Security Policy](SECURITY.md)** — vulnerability reporting
 
 ## Build
