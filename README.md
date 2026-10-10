@@ -166,8 +166,9 @@ Additional guardrails:
 ## Documentation
 
 - **[Getting Started](docs/getting-started.md)** — complete examples with expected output
-- **[Architecture](docs/architecture.md)** — module and dependency boundaries
-- **[Security model](docs/security-model.md)** — classifications, policies and threat model
+- **[Egress policy](docs/egress-policy.md)** — short rules, custom policies and processing semantics
+- **[Architecture](docs/architecture.md)** — module, dependency and API-layer boundaries
+- **[Security model](docs/security-model.md)** — classifications, guardrails and threat model
 - **[Security policy](SECURITY.md)** — vulnerability reporting and security guarantees
 
 ## Build

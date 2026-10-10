@@ -33,6 +33,9 @@ Current guarantees include:
 - HMAC tokenization requires at least 32 bytes of secret material;
 - conflicting external key definitions are rejected;
 - the Satellite Data bridge rejects unclassified fields by default;
+- schema-backed bridge conversion validates required fields;
+- ergonomic APIs preserve sink + purpose requirements and non-bypassable observability guardrails;
+- secure adapter factories use the same fail-closed processor as direct Egress processing;
 - PMAP/XML parsing disables DTD/external entities and enforces finite resource budgets;
 - release publishing does not run on ordinary pushes.
 

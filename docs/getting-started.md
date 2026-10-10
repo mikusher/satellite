@@ -14,8 +14,44 @@ Satellite uses **progressive disclosure**: the common path is intentionally shor
 
 ```text
 common case    -> secure factories + convenience rules
+custom policy  -> EgressRules + withSecureDefaults()
 advanced case  -> PolicyRule builder + custom processor components
 ```
+
+## Recommended API at a glance
+
+For most applications, these are the APIs to start with:
+
+```java
+// Secure default processing
+EgressProcessor.secureDefaults()
+        .process(envelope, EgressSink.LOG, "request-log");
+
+// Runtime metadata
+EgressEnvelope.builder()
+        .put(key, value, DataOrigin.DATABASE, TrustLevel.VALIDATED);
+
+// Positive, purpose-scoped rules
+EgressRules.allow(key, EgressSink.NETWORK, "provider", "REASON");
+EgressRules.tokenize(key, EgressSink.STORAGE, "analytics", "REASON");
+
+// Restrictive rules
+EgressRules.redact(key, EgressSink.LOG, "REASON");
+EgressRules.deny(key, EgressSink.NETWORK, "REASON");
+
+// Custom policy + secure fallback
+EgressPolicyEngine.builder()
+        .add(rule)
+        .withSecureDefaults()
+        .build();
+
+// Secure adapters
+Slf4jEgressLogger.secure(logger);
+JacksonEgressSerializer.secure(objectMapper);
+OpenTelemetrySpanAdapter.secure();
+```
+
+The detailed constructors and builders are still available when the application needs custom policy dimensions, tokenization, redaction or violation handling.
 
 ## 1. SatelliteData — dynamic typed application data
 
@@ -889,15 +925,13 @@ public class PaymentExample {
                         .put(
                                 email,
                                 "alice@example.com",
-                                ValueMetadata.of(
-                                        DataOrigin.DATABASE,
-                                        TrustLevel.VALIDATED))
+                                DataOrigin.DATABASE,
+                                TrustLevel.VALIDATED)
                         .put(
                                 paymentToken,
                                 "tok_very_secret",
-                                ValueMetadata.of(
-                                        DataOrigin.HTTP_BODY,
-                                        TrustLevel.VALIDATED))
+                                DataOrigin.HTTP_BODY,
+                                TrustLevel.VALIDATED)
                         .build();
 
         EgressPolicyEngine policy =
