@@ -12,297 +12,60 @@ import java.util.stream.Stream;
 public class SatelliteDataUtils {
 
 
-    private static final String PARAM_UUID = "UUID";
-
     private SatelliteDataUtils() {
-
     }
 
-    public static List<UUID> getUUIDList(String key, SatelliteData map) {
-
-        Stream<UUID> stream = getUUIDStream(key, map);
-        if (stream == null) {
-            return null;
-        }
-
-        return stream.collect(Collectors.toList());
+    public static List<UUID> getUUIDList(String key, SatelliteData data) {
+        return SatelliteUuidSupport.getUUIDList(key, data);
     }
 
-
-    private static Stream<UUID> getUUIDStream(String key, SatelliteData map) {
-
-        if (key == null || map == null) {
-            return null;
-        }
-
-        final Object value = map.get(key);
-        if (value == null || !(value instanceof List)) {
-            return null;
-        }
-
-        return toUUIDStream(((List<?>) value).stream());
+    public static List<UUID> getUUIDListFromObjectList(String key, SatelliteData data) {
+        return SatelliteUuidSupport.getUUIDListFromObjectList(key, data);
     }
 
-    public static List<UUID> getUUIDListFromObjectList(String key, SatelliteData map) {
-
-        Stream<UUID> stream = getUUIDStreamFromObjectList(key, map);
-        return stream == null ? null : stream.collect(Collectors.toList());
+    public static List<UUID> toUUIDList(Collection<?> values) {
+        return SatelliteUuidSupport.toUUIDList(values);
     }
 
-
-    private static Stream<UUID> getUUIDStreamFromObjectList(String key, SatelliteData map) {
-
-        if (key == null || map == null) {
-            return null;
-        }
-
-        Object value = map.get(key);
-        if (value == null || !(value instanceof List)) {
-            return null;
-        }
-
-        @SuppressWarnings("unchecked")
-        List<SatelliteData> objLst = (List<SatelliteData>) value;
-        return toUUIDStream(objLst.stream().map(pm -> {
-            try {
-                return pm.getString(PARAM_UUID);
-            } catch (Exception e) {
-                // Ignore different types
-                return null;
-            }
-        }));
+    public static Set<UUID> toUUIDSet(Collection<?> values) {
+        return SatelliteUuidSupport.toUUIDSet(values);
     }
 
-
-    /**
-     * Convert a given list of objects to a list of UUID.
-     * <p>
-     * List objects that are not strings in UUID format will be ignored.
-     *
-     * @param objList
-     * @return
-     */
-    public static List<UUID> toUUIDList(Collection<?> objList) {
-
-        return toUUIDStream(objList.stream()).collect(Collectors.toList());
+    public static Set<UUID> getUUIDSet(String key, SatelliteData data) {
+        return SatelliteUuidSupport.getUUIDSet(key, data, null);
     }
 
-
-    /**
-     * Convert a given list of objects to a Set of UUID.
-     * <p>
-     * List objects that are not strings in UUID format will be ignored.
-     *
-     * @param objList
-     * @return
-     */
-    public static Set<UUID> toUUIDSet(Collection<?> objList) {
-
-        return toUUIDStream(objList.stream()).collect(Collectors.toSet());
+    public static Set<UUID> getUUIDSet(String key, SatelliteData data, Set<UUID> fallback) {
+        return SatelliteUuidSupport.getUUIDSet(key, data, fallback);
     }
 
-
-    private static Stream<UUID> toUUIDStream(Stream<?> stream) {
-
-        return stream.map(SatelliteDataUtils::toUUID).filter(Objects::nonNull);
+    public static Set<UUID> getUUIDSetFromUUIDListOrObjectList(String key, SatelliteData data) {
+        return SatelliteUuidSupport.getUUIDSetFromMixedList(key, data);
     }
 
-
-    /**
-     * Retrieve an UUID set from a String list from a given map entry.
-     * <p>
-     * If <code>key</code> or <code>map</code> are <code>null</code>, then <code>null</code> is returned.
-     * <p>
-     * If the <code>map</code> has no <code>key</code>, or the value for the <code>key</code> is <code>null</code> or not a List, then <code>null</code> is returned.
-     * <p>
-     * Invalid UUID strings or <code>null</code> values are ignored.
-     *
-     * @param key Name of the map key that contains the String list.
-     * @param map Map where to look for the specified key.
-     * @return
-     */
-    public static Set<UUID> getUUIDSet(String key, SatelliteData map) {
-
-        return getUUIDSet(key, map, null);
+    public static Set<UUID> getUUIDSetFromObjectList(String key, SatelliteData data) {
+        return SatelliteUuidSupport.getUUIDSetFromObjectList(key, data);
     }
 
-
-    public static Set<UUID> getUUIDSet(String key, SatelliteData map, Set<UUID> defaultValue) {
-
-        Stream<UUID> stream = getUUIDStream(key, map);
-        if (stream == null) {
-            return defaultValue;
-        }
-
-        return stream.collect(Collectors.toSet());
+    public static void setUUIDList(String key, Collection<UUID> uuids, SatelliteData data) {
+        SatelliteUuidSupport.setUUIDList(key, uuids, data);
     }
 
-
-    /**
-     * Retrieve an UUID set from a String list or a Object List from a given map entry.
-     * <p>
-     * If <code>key</code> or <code>map</code> are <code>null</code>, then <code>null</code> is returned.
-     * <p>
-     * If the <code>map</code> has no <code>key</code>, or the value for the <code>key</code> is <code>null</code> or not a List, then <code>null</code> is returned.
-     * <p>
-     * Invalid UUID strings or <code>null</code> values are ignored.
-     *
-     * @param key Name of the map key that contains the String list.
-     * @param map Map where to look for the specified key.
-     * @return
-     */
-    public static Set<UUID> getUUIDSetFromUUIDListOrObjectList(String key, SatelliteData map) {
-
-        Object value = map.get(key);
-        if (value == null || !(value instanceof List)) {
-            return null;
-        }
-
-        List<UUID> uuidList = getUUIDList(key, map);
-        if (uuidList == null) {
-            return null;
-        }
-
-        int listLenght = ((List<?>) value).size();
-        if (listLenght > uuidList.size()) {
-            Stream<UUID> stream = getUUIDStreamFromObjectList(key, map);
-            return stream == null ? null : stream.collect(Collectors.toSet());
-        }
-
-        return new HashSet<>(uuidList);
+    public static UUID getUUID(String key, SatelliteData data) {
+        return SatelliteUuidSupport.getUUID(key, data, null);
     }
 
-
-    /**
-     * Retrieve an UUID set from a Object list from a given map entry.
-     * <p>
-     * If <code>key</code> or <code>map</code> are <code>null</code>, then <code>null</code> is returned.
-     * <p>
-     * If the <code>map</code> has no <code>key</code>, or the value for the <code>key</code> is <code>null</code> or not a List, then <code>null</code> is returned.
-     * <p>
-     * Invalid UUID strings or <code>null</code> values are ignored.
-     *
-     * @param key Name of the map key that contains the String list.
-     * @param map Map where to look for the specified key.
-     * @return
-     */
-    public static Set<UUID> getUUIDSetFromObjectList(String key, SatelliteData map) {
-
-        Stream<UUID> stream = getUUIDStreamFromObjectList(key, map);
-        return stream == null ? null : stream.collect(Collectors.toSet());
+    public static UUID getUUID(String key, SatelliteData data, UUID fallback) {
+        return SatelliteUuidSupport.getUUID(key, data, fallback);
     }
 
-
-    /**
-     * Convert an UUID list to a String list and set it to the provided <code>map</code>.
-     * <p>
-     * If <code>key</code>, <code>uuidList</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * <code>null</code> entries in the list are ignored.
-     *
-     * @param key      Name of the map key to be set.
-     * @param uuidList UUID list to set in the specified map.
-     * @param map      Map where to set the specified key.
-     * @return
-     */
-    public static void setUUIDList(String key, Collection<UUID> uuidList, SatelliteData map) {
-
-        if (key == null || map == null || uuidList == null) {
-            return;
-        }
-
-        map.put(key, uuidList.stream().filter(Objects::nonNull).map(UUID::toString).collect(Collectors.toList()));
+    public static void setUUID(String key, UUID uuid, SatelliteData data) {
+        SatelliteUuidSupport.setUUID(key, uuid, data);
     }
 
-
-    /**
-     * Retrieve an UUID from a String parameter in a map.
-     * <p>
-     * If <code>key</code> or <code>map</code> are <code>null</code>, then <code>null</code> is returned.
-     * <p>
-     * If the <code>map</code> has no <code>key</code>, or the value for the <code>key</code> is <code>null</code> or not a String, then <code>null</code> is returned.
-     * <p>
-     * If the String contains an invalid UUID, then <code>null</code> is returned.
-     *
-     * @param key Name of the map key that contains the String.
-     * @param map Map where to look for the specified key.
-     * @return
-     */
-    public static UUID getUUID(String key, SatelliteData map) {
-
-        return getUUID(key, map, null);
-    }
-
-
-    /**
-     * Retrieve an UUID from a String parameter in a map.
-     * <p>
-     * If <code>key</code> or <code>map</code> are <code>null</code>, then <code>defaultUUID</code> is returned.
-     * <p>
-     * If the <code>map</code> has no <code>key</code>, or the value for the <code>key</code> is <code>null</code> or not a String, then <code>defaultUUID</code> is returned.
-     * <p>
-     * If the String contains an invalid UUID, then <code>defaultUUID</code> is returned.
-     *
-     * @param key Name of the map key that contains the String.
-     * @param map Map where to look for the specified key.
-     * @return
-     */
-    public static UUID getUUID(String key, SatelliteData map, UUID defaultUUID) {
-
-        if (key == null || map == null) {
-            return defaultUUID;
-        }
-
-        UUID result = toUUID(map.get(key));
-
-        return result == null ? defaultUUID : result;
-    }
-
-
-    /**
-     * Convert an UUID to a String and set it to the provided <code>map</code>.
-     * <p>
-     * If <code>key</code>, <code>uuid</code> or <code>map</code> are <code>null</code>, nothing is done.
-     *
-     * @param key  Name of the map key to be set.
-     * @param uuid UUID to set in the specified map.
-     * @param map  Map where to set the specified key.
-     * @return
-     */
-    public static void setUUID(String key, UUID uuid, SatelliteData map) {
-
-        if (key == null || map == null || uuid == null) {
-            return;
-        }
-
-        map.put(key, uuid.toString());
-    }
-
-
-    /**
-     * Convert a given Object to an UUID.
-     * <p>
-     * If the Object is not a String then <code>null</code> is returned.
-     *
-     * @param value
-     * @return
-     */
     public static UUID toUUID(Object value) {
-
-        if (value == null || !(value instanceof String)) {
-            return null;
-        }
-
-        try {
-            return UUID.fromString((String) value);
-        } catch (IllegalArgumentException e) {
-
-            // Ignore invalid UUID strings.
-        }
-
-        return null;
+        return SatelliteUuidSupport.toUUID(value);
     }
-
 
     /**
      * Retrieve a SatelliteData list from a given map entry.
