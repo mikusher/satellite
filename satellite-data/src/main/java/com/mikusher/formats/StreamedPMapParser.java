@@ -382,7 +382,7 @@ public class StreamedPMapParser {
     public SatelliteData getData(Reader reader) throws XMLStreamException {
 
         XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
-                new LimitedReader(reader, _limits.getMaxInputCharacters()));
+                PMapReadGuard.limitCharacters(reader, _limits.getMaxInputCharacters()));
         try {
             nextStartElement(r);
             return getData(r);
@@ -398,7 +398,7 @@ public class StreamedPMapParser {
         }
 
         XMLStreamReader r = createXmlInputFactory().createXMLStreamReader(
-                new LimitedInputStream(is, _limits.getMaxInputBytes()));
+                PMapReadGuard.limitBytes(is, _limits.getMaxInputBytes()));
         try {
             nextStartElement(r);
             return getData(r);
@@ -412,20 +412,20 @@ public class StreamedPMapParser {
         reader.next();
 
         Map<String, Object> data = new HashMap<>();
-        readMap(reader, data, 1, new ParseBudget(_limits));
+        readMap(reader, data, 1, new PMapReadGuard(_limits));
 
         return new SatelliteData(data);
     }
 
         public void readMap(XMLStreamReader reader, Map<String, Object> map) throws XMLStreamException {
 
-        readMap(reader, map, 1, new ParseBudget(_limits));
+        readMap(reader, map, 1, new PMapReadGuard(_limits));
     }
 
     private void readMap(XMLStreamReader reader,
                          Map<String, Object> map,
                          int depth,
-                         ParseBudget budget) throws XMLStreamException {
+                         PMapReadGuard budget) throws XMLStreamException {
 
         budget.checkDepth(depth);
 
@@ -447,7 +447,7 @@ public class StreamedPMapParser {
     private void readParam(XMLStreamReader reader,
                            Map<String, Object> map,
                            int depth,
-                           ParseBudget budget) throws XMLStreamException {
+                           PMapReadGuard budget) throws XMLStreamException {
 
         budget.consumeEntry();
 
@@ -460,7 +460,7 @@ public class StreamedPMapParser {
 
     private Object parseValue(XMLStreamReader reader,
                               int depth,
-                              ParseBudget budget) throws XMLStreamException {
+                              PMapReadGuard budget) throws XMLStreamException {
 
         // Validate parameter tag
         String type = StaxUtils.ATT(reader, ATT_TYPE);
@@ -532,7 +532,7 @@ public class StreamedPMapParser {
 
     private List<Object> parseList(XMLStreamReader reader,
                                    int depth,
-                                   ParseBudget budget) throws XMLStreamException, SatelliteException {
+                                   PMapReadGuard budget) throws XMLStreamException, SatelliteException {
 
         List<Object> innerList = new ArrayList<>();
 
@@ -663,7 +663,7 @@ public class StreamedPMapParser {
 
         XMLStreamReader reader = createXmlInputFactory().createXMLStreamReader(
                 new InputStreamReader(
-                        new LimitedInputStream(is, _limits.getMaxInputBytes()),
+                        PMapReadGuard.limitBytes(is, _limits.getMaxInputBytes()),
                         CHARSET));
         try {
             final String pname = serType.getVersion() == 1
@@ -997,34 +997,6 @@ public class StreamedPMapParser {
     }
 
 
-    private static final class ParseBudget {
-        private final PMapParserLimits limits;
-        private int entries;
-
-        private ParseBudget(PMapParserLimits limits) {
-            this.limits = limits;
-        }
-
-        private void checkDepth(int depth) throws XMLStreamException {
-            if (depth > limits.getMaxDepth()) {
-                throw new XMLStreamException("PMAP nesting depth limit exceeded");
-            }
-        }
-
-        private void consumeEntry() throws XMLStreamException {
-            entries++;
-            if (entries > limits.getMaxEntries()) {
-                throw new XMLStreamException("PMAP entry limit exceeded");
-            }
-        }
-
-        private void checkText(String value) throws XMLStreamException {
-            if (value != null && value.length() > limits.getMaxTextLength()) {
-                throw new XMLStreamException("PMAP text length limit exceeded");
-            }
-        }
-    }
-
     private static final class NonClosingOutputStream extends FilterOutputStream {
         private NonClosingOutputStream(OutputStream output) {
             super(Objects.requireNonNull(output, "output"));
@@ -1033,78 +1005,6 @@ public class StreamedPMapParser {
         @Override
         public void close() throws IOException {
             flush();
-        }
-    }
-
-    private static final class LimitedInputStream extends FilterInputStream {
-        private final long maxBytes;
-        private long count;
-
-        private LimitedInputStream(InputStream input, long maxBytes) {
-            super(Objects.requireNonNull(input, "input"));
-            this.maxBytes = maxBytes;
-        }
-
-        @Override
-        public int read() throws IOException {
-            int value = super.read();
-            if (value != -1) {
-                count++;
-                checkLimit();
-            }
-            return value;
-        }
-
-        @Override
-        public int read(byte[] buffer, int offset, int length) throws IOException {
-            int read = super.read(buffer, offset, length);
-            if (read > 0) {
-                count += read;
-                checkLimit();
-            }
-            return read;
-        }
-
-        private void checkLimit() throws IOException {
-            if (count > maxBytes) {
-                throw new IOException("PMAP input size limit exceeded");
-            }
-        }
-    }
-
-    private static final class LimitedReader extends FilterReader {
-        private final long maxCharacters;
-        private long count;
-
-        private LimitedReader(Reader reader, long maxCharacters) {
-            super(Objects.requireNonNull(reader, "reader"));
-            this.maxCharacters = maxCharacters;
-        }
-
-        @Override
-        public int read() throws IOException {
-            int value = super.read();
-            if (value != -1) {
-                count++;
-                checkLimit();
-            }
-            return value;
-        }
-
-        @Override
-        public int read(char[] buffer, int offset, int length) throws IOException {
-            int read = super.read(buffer, offset, length);
-            if (read > 0) {
-                count += read;
-                checkLimit();
-            }
-            return read;
-        }
-
-        private void checkLimit() throws IOException {
-            if (count > maxCharacters) {
-                throw new IOException("PMAP input size limit exceeded");
-            }
         }
     }
 
