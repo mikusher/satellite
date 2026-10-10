@@ -23,8 +23,8 @@ Validate what can be verified without modifying runtime behavior:
 | Reactor tests on Java 11, 17 and 21 | Verified in baseline | GitHub Actions CI success on baseline SHA |
 | Static analysis | Verified in baseline | CodeQL Java success on baseline SHA |
 | Composite/unclassified value deny, redactor/tokenizer fail-closed | Existing regression tests | PR #45 merged; check `CompositeDataLeakTest`, `UnclassifiedCompositeEgressTest` and `TransformationOutputGuardrailTest` |
-| External consumer compiles and tests Java 11 / 21 | **Requires new CI verification** | `verification/pom.xml`, standalone JUnit `SatelliteConsumerTest` |
-| Reproducible microbenchmark baseline | **Requires benchmark workflow run** | `benchmarks/pom.xml`, `.github/workflows/benchmarks.yml`, JSON artifact |
+| External consumer compiles and tests Java 11 / 21 | **Verified on PR #46** | The standalone Maven project compiled and passed all four JUnit tests on Java 11 and 21 after correcting an inaccurate JSON expectation |
+| Reproducible microbenchmark baseline | **Initial diagnostic run captured** | [JMH workflow run](https://github.com/mikusher/satellite/actions/runs/38090940750), Java 21, raw JSON artifact, see preliminary timings below |
 | Live SLF4J backend / OpenTelemetry exporter / external HTTP integrations | **Not verified** | Current tests prepare approved output; require environment-backed contract tests before claiming end-to-end production validation |
 | Version and artifact publication | **Blocked** | POM is `2.0.0-SNAPSHOT`, release workflow rejects snapshots; no published GitHub Release was found |
 | Distribution channel | Identified, not published | `distributionManagement` points to GitHub Packages; do not claim Maven Central availability |
@@ -42,6 +42,18 @@ mvn --batch-mode --no-transfer-progress -f verification/pom.xml verify
 ```
 
 The CI also runs the consumer project independently on Java 11 and 21. It tests an application workflow crossing Satellite Data → bridge → Egress policy → JSON/log/trace adapters and adversarial cases. No live API call, logger backend or tracing collector is required.
+
+## Preliminary JMH baseline
+
+An independent [JMH workflow run](https://github.com/mikusher/satellite/actions/runs/38090940750) succeeded on GitHub Actions (JMH 1.37, Java 21, 1 fork, 2 × 1-second warmup iterations and 3 × 1-second measurement iterations):
+
+| Benchmark | Average time | Reported JMH error |
+| --- | ---: | ---: |
+| `publicLog` | 0.119 µs/op | ± 0.012 µs/op |
+| `mixedLog` | 0.159 µs/op | ± 0.013 µs/op |
+| `strictBridge` | 0.348 µs/op | ± 0.021 µs/op |
+
+These are **preliminary CI-host measurements** for tiny synthetic data, not application performance or release SLOs. Re-run with more forks, realistic input sizes and comparable hardware before interpreting trends.
 
 ## Reproduce the benchmark
 
@@ -64,4 +76,4 @@ A run in shared CI provides a *diagnostic baseline only*. It is not a throughput
 
 **NO-GO for public stable release**, independently of tests going green, while the version remains a snapshot and production/distribution validations remain incomplete.
 
-This report makes the uncertainty explicit. Check CI runs and artifact results for the current branch/commit before updating the evidence statuses above.
+This report makes the uncertainty explicit. A clean independent consumer run and an initial JMH measurement do not remove the publication/version and live-integration blockers.
