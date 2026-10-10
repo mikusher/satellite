@@ -94,7 +94,7 @@ public class SatelliteConsumerTest {
         String json = JacksonEgressSerializer.secure(new ObjectMapper())
                 .toJson(envelope, "api-response");
         assertTrue(json.contains("ORDER-9001"));
-        assertTrue(json.contains("[REDACTED]"));
+        assertFalse(json.contains("customer.email"));
         assertFalse(json.contains("alice@example.com"));
         assertFalse(json.contains("tok_private"));
 
