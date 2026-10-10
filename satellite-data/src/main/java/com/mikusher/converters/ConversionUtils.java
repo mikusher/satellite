@@ -36,30 +36,6 @@ public class ConversionUtils {
         return _calendar.get();
     }
 
-    @Deprecated
-    public static Date string2Date(CharSequence dateObj) throws IncorrectTypeException {
-
-        return FastDateFormat.SECOND.string2Date(dateObj);
-    }
-
-    @Deprecated
-    public static Date long2Date(long dateLng) throws IncorrectTypeException {
-
-        return FastDateFormat.SECOND.long2Date(dateLng);
-    }
-
-    @Deprecated
-    public static long date2Long(Date dateObj) {
-
-        return FastDateFormat.SECOND.date2Long(dateObj);
-    }
-
-    @Deprecated
-    public static String date2String(Date dateObj) {
-
-        return FastDateFormat.SECOND.date2String(dateObj);
-    }
-
 
     public enum FastDateFormat {
         DAY("yyyyMMdd", 1_01_01L, 9999_99_99L),

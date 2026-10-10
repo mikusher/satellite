@@ -24,8 +24,10 @@ public class DataDefinition {
      *
      ***************************************************************************/
     public DataDefinition(DataDefinition infoMap) {
-
+        Objects.requireNonNull(infoMap, "infoMap");
         _map = new LinkedHashMap<>(infoMap._map);
+        _name = infoMap._name;
+        _description = infoMap._description;
     }
 
 
@@ -77,22 +79,7 @@ public class DataDefinition {
     }
 
 
-    /***************************************************************************
-     *
-     * Adds the description of a new parameter.
-     *
-     * @param paramInfo
-     *            Information on the new parameter.
-     *
-     * @deprecated Use the <code>{@link #add(ParameterInfo)}</code>
-     *             instead.
-     *
-     ***************************************************************************/
-    @Deprecated
-    public void addParameterInfo(ParameterInfo paramInfo) {
 
-        add(paramInfo);
-    }
 
 
     /***************************************************************************
