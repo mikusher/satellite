@@ -1,25 +1,42 @@
 # Satellite
 
-**Typed dynamic data and policy-controlled application egress for Java.**
+**Typed dynamic data and policy-controlled egress for Java.**
 
-Satellite has two independent sides:
+Satellite helps Java applications work with flexible data and decide **what may leave the application** before it reaches logs, traces, JSON, network calls or storage.
 
-- **Satellite Data** — flexible application data with typed access and optional definitions.
-- **Satellite Egress** — classify data and decide what may leave the application, for which sink and purpose.
+Use the parts you need:
 
-Use either side independently, or connect them with the optional bridge.
+- **Satellite Data** — dynamic data with typed access and optional definitions.
+- **Satellite Egress** — classify values and enforce `ALLOW`, `REDACT`, `TOKENIZE` or `DENY`.
+- **Bridge** — optionally move `SatelliteData` into the Egress model.
 
-> Current line: `2.0.0-SNAPSHOT` · Java 11 baseline · tested on Java 11, 17 and 21.
+> Satellite 2.x · Java 11 baseline · tested on Java 11, 17 and 21.
 
-## Start here
+## Why?
 
-For complete examples from simple usage to production-style egress policies, including the **expected output for every example**, read:
+Sensitive data often leaks at application boundaries.
 
-**[Getting Started — examples and expected output](docs/getting-started.md)**
+Satellite makes that boundary explicit:
 
-## 5-minute example
+```text
+application data
+      |
+      v
+EgressEnvelope
+      |
+      v
+policy: value + sink + purpose + origin + trust
+      |
+      v
+ALLOW / REDACT / TOKENIZE / DENY
+      |
+      v
+approved output
+```
 
-Define the meaning of each outbound value:
+## Quick start
+
+Define what each value means:
 
 ```java
 Key<String> userId = Key.string("user.id")
@@ -32,7 +49,11 @@ Key<String> email = Key.string("user.email")
 Key<String> token = Key.string("auth.token")
         .classifiedAs(DataClassification.RESTRICTED)
         .category(DataCategory.CREDENTIAL);
+```
 
+Create an envelope and process it for a log:
+
+```java
 EgressEnvelope envelope = EgressEnvelope.builder()
         .put(userId, "user-123")
         .put(email, "user@example.com")
@@ -41,10 +62,7 @@ EgressEnvelope envelope = EgressEnvelope.builder()
 
 EgressReport report =
         EgressProcessor.secureDefaults()
-                .process(
-                        envelope,
-                        EgressSink.LOG,
-                        "request-log");
+                .process(envelope, EgressSink.LOG, "request-log");
 
 System.out.println(report.getOutput());
 ```
@@ -55,9 +73,7 @@ Expected output:
 {user.id=user-123, user.email=[REDACTED]}
 ```
 
-The credential never enters the approved output.
-
-The policy decisions are:
+Policy decisions:
 
 ```text
 user.id    -> ALLOW
@@ -65,111 +81,87 @@ user.email -> REDACT
 auth.token -> DENY
 ```
 
-The important distinction is that `EgressEnvelope` may contain the original values **inside the application**. The policy is evaluated when those values are about to cross an egress boundary.
+The credential never enters the approved output.
 
-## Simple by default, detailed when needed
+## Allow one specific use
 
-The common path uses short, intention-revealing APIs:
+Positive rules stay scoped to both sink and purpose:
 
 ```java
-EgressProcessor.secureDefaults()
-        .process(envelope, EgressSink.LOG, "request-log");
+EgressPolicyEngine policy =
+        EgressPolicyEngine.builder()
+                .add(EgressRules.allow(
+                        email,
+                        EgressSink.NETWORK,
+                        "account-provider",
+                        "ACCOUNT_EMAIL_REQUIRED"))
+                .withSecureDefaults()
+                .build();
+```
 
-EgressRules.allow(
-        email,
-        EgressSink.NETWORK,
-        "account-provider",
-        "ACCOUNT_EMAIL_REQUIRED");
+This allows the email for `NETWORK / account-provider`, not for unrelated purposes such as analytics.
 
+## Dynamic data
+
+Satellite Data works independently from Egress:
+
+```java
+SatelliteData data = new SatelliteData();
+
+data.put("caseNumber", "C12.12343");
+data.put("retry", 3);
+data.put("active", true);
+
+String caseNumber = data.getString("caseNumber");
+int retry = data.getInt("retry");
+boolean active = data.getBoolean("active");
+```
+
+Use `DataDefinition` when fields need structure, defaults or required values.
+
+## Safe integrations
+
+```java
 Slf4jEgressLogger.secure(logger);
 JacksonEgressSerializer.secure(objectMapper);
 OpenTelemetrySpanAdapter.secure();
 ```
 
-The lower-level builders and constructors remain available for advanced policies, custom redactors/tokenizers and specialized integrations. The short APIs do not weaken fail-closed behavior, purpose scoping or observability guardrails.
+Custom processors remain available when you need your own policies, redactors or tokenizers.
 
-## Mental model
+## Security defaults
 
-```text
-SatelliteData
-    |
-    | dynamic application data
-    v
-SatelliteDataEgressBridge       optional
-    |
-    v
-EgressEnvelope
-    |
-    | type + classification + category
-    | origin + trust
-    v
-EgressPolicyEngine
-    |
-    +--> ALLOW
-    +--> REDACT
-    +--> TOKENIZE
-    +--> DENY
-    |
-    v
-EgressReport
-    |
-    v
-approved sink adapter
-```
+| Data | Default |
+| --- | --- |
+| `PUBLIC` | allow |
+| `INTERNAL` | keep local; restrict external egress |
+| `CONFIDENTIAL` | redact in observability; otherwise deny unless authorized |
+| `RESTRICTED` | deny unless explicitly authorized |
+| `CREDENTIAL` / `SECRET` | deny |
 
-An egress decision can depend on:
-
-```text
-the data
-+ where it is going
-+ why it is going there
-+ where the value came from
-+ how much the application trusts it
-```
+Satellite also fails closed when no policy matches, requires sink + purpose for positive rules, blocks raw sensitive values in observability, and omits denied values from approved output.
 
 ## Modules
 
 | Module | Purpose |
 | --- | --- |
-| `satellite-data` | `SatelliteData`, `DataDefinition`, conversions and hardened PMAP/XML |
-| `satellite-egress-core` | `Key<T>`, `EgressEnvelope`, runtime metadata and schemas |
-| `satellite-egress-policy` | `ALLOW`, `REDACT`, `TOKENIZE`, `DENY` |
-| `satellite-egress-observability` | Policy-enforced SLF4J |
-| `satellite-egress-jackson` | Policy-enforced JSON + JSON Schema 2020-12 |
-| `satellite-egress-opentelemetry` | Policy-enforced OpenTelemetry attributes |
-| `satellite-data-egress-bridge` | Optional Satellite Data → Egress bridge |
+| `satellite-data` | dynamic typed data and PMAP/XML |
+| `satellite-egress-core` | keys, envelopes, metadata and schemas |
+| `satellite-egress-policy` | policy and processing |
+| `satellite-egress-observability` | SLF4J |
+| `satellite-egress-jackson` | JSON / JSON Schema |
+| `satellite-egress-opentelemetry` | OpenTelemetry |
+| `satellite-data-egress-bridge` | optional Data → Egress bridge |
 
-**Boundary rule:** Satellite Data does not depend on Egress. Egress does not depend on Satellite Data. Only the bridge knows both.
-
-## Secure defaults
-
-The default egress policy is deliberately conservative:
-
-| Data | Default behavior |
-| --- | --- |
-| `PUBLIC` | Allow |
-| `INTERNAL` | Allow for local sinks; redact generic serialization; deny network |
-| `CONFIDENTIAL` | Redact in observability; deny other sinks unless explicitly authorized |
-| `RESTRICTED` | Deny unless explicitly authorized for an appropriate non-observability use |
-| `CREDENTIAL` / `SECRET` | Deny |
-
-Additional guardrails:
-
-- no matching policy fails closed;
-- positive `ALLOW` and `TOKENIZE` rules require both a sink and a purpose;
-- confidential, restricted, privacy-sensitive, credential and secret values cannot be emitted raw to observability sinks;
-- redaction or tokenization failures become `DENY`;
-- violation records never contain the protected value;
-- the Satellite Data bridge rejects unclassified fields by default;
-- PMAP/XML parsing blocks DTD/external entities and applies finite resource limits.
+Satellite Data and Egress remain independent; only the bridge knows both.
 
 ## Documentation
 
-- **[Getting Started](docs/getting-started.md)** — complete examples with expected output
-- **[Egress policy](docs/egress-policy.md)** — short rules, custom policies and processing semantics
-- **[Architecture](docs/architecture.md)** — module, dependency and API-layer boundaries
-- **[Security model](docs/security-model.md)** — classifications, guardrails and threat model
-- **[Security policy](SECURITY.md)** — vulnerability reporting and security guarantees
+- **[Getting Started](docs/getting-started.md)** — complete examples and expected output
+- **[Egress Policy](docs/egress-policy.md)** — rules and custom policies
+- **[Security Model](docs/security-model.md)** — classifications and guardrails
+- **[Architecture](docs/architecture.md)** — modules and boundaries
+- **[Security Policy](SECURITY.md)** — vulnerability reporting
 
 ## Build
 
@@ -177,18 +169,8 @@ Additional guardrails:
 mvn --batch-mode --no-transfer-progress verify
 ```
 
-Expected result:
-
-```text
-BUILD SUCCESS
-```
-
-The repository includes Java 11/17/21 CI, CodeQL, Dependabot, CycloneDX SBOM generation, dependency review, module-boundary enforcement and guarded release workflows.
-
-## Status
-
-Satellite 2.x is under active development. APIs may still change before the first stable 2.x release.
+Satellite 2.x is under active development.
 
 ## License
 
-MIT.
+MIT
