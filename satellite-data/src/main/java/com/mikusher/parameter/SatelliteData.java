@@ -156,22 +156,9 @@ public class SatelliteData implements DataMap {
      *
      **************************************************************************/
     static List<?> cloneArray(List<?> array) {
-
-        List<Object> cloned;
-        try {
-            cloned = array.getClass().getDeclaredConstructor().newInstance();
-        } catch (InstantiationException ie) {
-            cloned = new ArrayList<>(array.size());
-        } catch (Exception ex) {
-            try {
-                cloned = new ArrayList<>(array.size());
-            } catch (Exception e) {
-                throw new SatelliteError(e.toString(), e);
-            }
-        }
-
-        for (Object obj : array) {
-            cloned.add(cloneObject(obj));
+        List<Object> cloned = new ArrayList<>(array.size());
+        for (Object value : array) {
+            cloned.add(cloneObject(value));
         }
         return cloned;
     }
@@ -1649,73 +1636,76 @@ public class SatelliteData implements DataMap {
      *
      ***************************************************************************/
     public void remove(String paramName) throws UnknownParameterException {
+        Objects.requireNonNull(paramName, "paramName");
 
-        if (_params.remove(paramName) != null) {
+        if (_params.containsKey(paramName)) {
+            _params.remove(paramName);
+            return;
+        }
+
+        char[] buffer = paramName.toCharArray();
+        if (buffer.length < 3 || buffer[0] == '.' || buffer[0] == '('
+                || buffer[buffer.length - 1] == '.'
+                || buffer[buffer.length - 1] == '(') {
             return;
         }
 
         Object holder = this;
-        char[] buffer = paramName.toCharArray();
         int last = 0;
+        boolean inArray = false;
+        boolean afterArray = false;
 
-        try {
-            if (buffer.length < 3 || buffer[0] == '.' || buffer[0] == '(' || buffer[buffer.length - 1] == '.' || buffer[buffer.length - 1] == '(')
-                return;
-
-            holder = this;
-
-            boolean arr = false;
-            boolean outArr = false;
-
-            for (int i = 1; i < buffer.length; i++) {
-                switch (buffer[i]) {
-                    case '(':
-                    case '.':
-                        if (!outArr && (arr || last == i)) {
+        for (int i = 1; i < buffer.length; i++) {
+            switch (buffer[i]) {
+                case '(':
+                case '.':
+                    if (!afterArray && (inArray || last == i)) {
+                        return;
+                    }
+                    if (!afterArray) {
+                        if (!(holder instanceof SatelliteData)) {
                             return;
                         }
+                        holder = ((SatelliteData) holder)._params.get(paramName.substring(last, i));
+                    }
+                    last = i + 1;
+                    afterArray = false;
+                    inArray = (buffer[i] == '(');
+                    break;
+                case ')':
+                    if (!inArray || last == i || !(holder instanceof List)) {
+                        return;
+                    }
+                    int index;
+                    try {
+                        index = Integer.parseInt(paramName.substring(last, i));
+                    } catch (NumberFormatException invalidIndex) {
+                        return;
+                    }
 
-                        if (!outArr) {
-                            holder = ((SatelliteData) holder)._params.get(paramName.substring(last, i));
-                        }
-                        last = i + 1;
-                        outArr = false;
-                        arr = (buffer[i] == '(');
-                        break;
-                    case ')':
-                        if (!arr || last == i) {
-                            throw new UnknownParameterException(paramName);
-                        }
-                        int tmp = Integer.parseInt(paramName.substring(last, i));
+                    List<?> values = (List<?>) holder;
+                    if (index < 0 || index >= values.size()) {
+                        return;
+                    }
+                    if (i == buffer.length - 1) {
+                        values.remove(index);
+                        return;
+                    }
 
-                        if (i == buffer.length - 1) {
-                            // the end
-                            ((List) holder).remove(tmp);
-
-                            return;
-                        }
-
-                        holder = ((List) holder).get(tmp);
-                        last = i + 1;
-                        arr = false;
-                        outArr = true;
-                        break;
-                    default:
-                        if (outArr) {
-                            throw new UnknownParameterException(paramName);
-                        }
-
-                }
+                    holder = values.get(index);
+                    last = i + 1;
+                    inArray = false;
+                    afterArray = true;
+                    break;
+                default:
+                    if (afterArray) {
+                        return;
+                    }
             }
+        }
 
-            if (arr || last == 0) {
-                return;
-            }
-
-            // remove it from the structure
+        if (!inArray && last > 0 && holder instanceof SatelliteData) {
             ((SatelliteData) holder)._params.remove(paramName.substring(last));
-        } catch (Exception e) {
-            // parameter not in structure so nothing to do
         }
     }
 
