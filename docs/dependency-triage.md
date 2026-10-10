@@ -10,14 +10,14 @@ This records the maintenance changes and the still-open automation updates. The 
 | [#27](https://github.com/mikusher/satellite/pull/27) | Commons Lang 3.20.0 → 3.21.0 | **Applied in #49**; original bot PR closed as superseded |
 | [#28](https://github.com/mikusher/satellite/pull/28) | Guava 33.7.1-jre → 33.7.2-jre | **Applied in #49**; original bot PR closed as superseded |
 
-All three changes touched **only version properties in the root POM**. The combined PR #49 passed Java 11/17/21 reactor checks, Java 11/21 independent consumers, the isolated RC simulation, Dependency Review and CodeQL before merge. These results validate the configured checks, not all possible downstream integrations.
+All three changes touched **only version properties in the root POM**. The combined PR #49 passed Java 11/17/21 reactor checks, Java 11/21 independent consumers, isolated RC simulation and CodeQL. **Do not count a green Dependency Review job as a vulnerability review** until its review step actually executes: a subsequent PR #50 run revealed HTTP 404 from the Dependency Graph endpoint and a skipped review step.
 
 ## GitHub Actions updates
 
 | PR | Upgrade | Recommended verification |
 | --- | --- | --- |
-| [#23](https://github.com/mikusher/satellite/pull/23) | setup-java v4 → v6 in CodeQL workflow | Verify Node runtime support and CodeQL build |
-| [#30](https://github.com/mikusher/satellite/pull/30) | checkout v4 → v7 in CodeQL and dependency review | Verify both workflows; overlaps the files in #23 |
+| [#23](https://github.com/mikusher/satellite/pull/23) | setup-java v4 → v6 in CodeQL workflow | Applied in the separate build hardening PR only once its CodeQL run is green |
+| [#30](https://github.com/mikusher/satellite/pull/30) | checkout v4 → v7 in CodeQL and dependency review | Verify both workflows; overlaps the files in #23. **Dependency review remains skipped** if the graph is unavailable |
 | [#29](https://github.com/mikusher/satellite/pull/29) | dependency-review-action v4 → v5 | Check permissions and dependency-review outcome |
 | [#26](https://github.com/mikusher/satellite/pull/26) | first-interaction v1 → v3 | Check greeting job on first issues/PRs |
 | [#25](https://github.com/mikusher/satellite/pull/25) | SonarQube scan action v8.2.1 → v8.3.0 | Requires real SonarQube configuration/secrets; CI alone may not exercise it |
@@ -25,6 +25,10 @@ All three changes touched **only version properties in the root POM**. The combi
 | [#32](https://github.com/mikusher/satellite/pull/32) | Checkmarx action 2.3.42 → 2.3.45 | Check provider compatibility, credentials and scanner results |
 
 Some workflow PRs were originally opened against an older base commit and may need an update/rebase. **Do not merge them indiscriminately**: a green generic Maven build does not validate an externally configured scanner action.
+
+## Security coverage warning
+
+The Dependency Graph endpoint returned HTTP **404** in the PR #50 workflow, so the action was skipped and the job still displayed success. This is **unverified security coverage**, not a clean bill of health. The [manual release security gate](../.github/workflows/release-security-preflight.yml) explicitly fails when the graph or alerts cannot be inspected or when high/critical open alerts are found.
 
 ## Release relevance
 
