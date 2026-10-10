@@ -1,0 +1,64 @@
+name: Release security preflight (manual, no publish)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: read
+
+jobs:
+  security:
+    name: Verify Dependency Graph and alerts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Unit-test alert evaluation
+        run: python3 -m unittest discover -s scripts/tests -v
+
+      - name: Require GitHub Dependency Graph
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_SECURITY_TOKEN || github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          status="$(
+            curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${REPOSITORY}/dependency-graph/sbom"
+          )"
+          if [ "${status}" != "200" ]; then
+            echo "::error::Release NO-GO: Dependency Graph unavailable (HTTP ${status}). Configure repository Dependency Graph, then rerun."
+            exit 1
+          fi
+          echo "Dependency Graph available" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Require accessible Dependabot alerts and no high/critical findings
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_SECURITY_TOKEN || github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          response="$RUNNER_TEMP/satellite-dependabot-open-alerts.json"
+          status="$(
+            curl --silent --show-error --output "${response}" \
+              --write-out '%{http_code}' \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${REPOSITORY}/dependabot/alerts?state=open&per_page=100"
+          )"
+          if [ "${status}" != "200" ]; then
+            echo "::error::Release NO-GO: Cannot inspect Dependabot alerts (HTTP ${status}). Check repository permissions and alert enablement."
+            exit 1
+          fi
+          python3 scripts/check_dependabot_alerts.py --file "${response}"
+          echo "Release dependency security gate passed at ${GITHUB_SHA}" >> "${GITHUB_STEP_SUMMARY}"

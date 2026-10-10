@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Check dependency graph availability
         id: dependency-graph
@@ -29,9 +29,15 @@ jobs:
 
           if [ "${status}" = "200" ]; then
             echo "enabled=true" >> "${GITHUB_OUTPUT}"
+            echo "GitHub Dependency Graph available; dependency review will run." >> "${GITHUB_STEP_SUMMARY}"
           else
             echo "enabled=false" >> "${GITHUB_OUTPUT}"
-            echo "::warning::GitHub Dependency Graph is unavailable (HTTP ${status}); dependency review was skipped."
+            echo "::warning::GitHub Dependency Graph is unavailable (HTTP ${status}); dependency review was skipped. This job is NOT evidence of dependency review coverage."
+            {
+              echo "### Dependency review NOT performed"
+              echo "GitHub Dependency Graph returned HTTP ${status}. Dependency Review was skipped."
+              echo "Release status remains blocked until the independent security gate succeeds."
+            } >> "${GITHUB_STEP_SUMMARY}"
           fi
 
       - name: Review dependency changes

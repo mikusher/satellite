@@ -29,7 +29,7 @@ Validate what can be verified without modifying runtime behavior:
 | Version and artifact publication | **Blocked intentionally** | POM is `2.0.0-SNAPSHOT` and no GitHub Release is published; release workflow now checks the Git tag against every module POM and has no manual publish dispatch |
 | Local Maven file-repository consumer smoke | **Verified on PR #48** | [Candidate workflow run 38092753055](https://github.com/mikusher/satellite/actions/runs/38092753055) completed successfully; separate clean Maven consumer resolved all staged artifacts, and SHA-256 inventory was uploaded | 
 | Distribution channel | Identified, not published | `distributionManagement` points to GitHub Packages; do not claim Maven Central availability |
-| Supply chain | Partially verified | Java library patch updates [#49](https://github.com/mikusher/satellite/pull/49) passed CI and were merged. Seven GitHub Actions updates (#23, #25, #26, #29–#32) remain for workflow-specific review; scanner service credentials and private alerts are not independently verified |
+| Supply chain | **Blocked: Dependency Graph unavailable** | PR #50 Dependency Review job returned success **but skipped the actual review step**: SBOM availability check returned HTTP 404. Java library patches were merged in #49 and tested by the other gates; that does **not** establish vulnerability-review coverage. Enable the graph/alerts and pass the separate release security preflight. |
 | Versioned migration / compatibility / changelog | **Documented procedure; decision pending** | [Controlled release process](release-process.md) describes RC and tag checks; GA version, compatibility promise and changelog still require approval |
 
 ## Live-boundary verification (PR #47)
@@ -95,7 +95,7 @@ A run in shared CI provides a *diagnostic baseline only*. It is not a throughput
 
 1. `mvn verify` green for Java 11, 17 and 21 on the exact release commit.
 2. Independent consumer tests green on Java 11 and 21.
-3. CodeQL and dependency/security reviews assessed with no unresolved release-blocking findings.
+3. CodeQL green **and** the manual Release security preflight green on the candidate commit. Dependency Graph and accessible Dependabot alerts must be available, and unresolved high/critical alerts must be addressed. A green skipped Dependency Review job is insufficient.
 4. JMH baseline recorded on a known Java version/runner; investigation of any obvious anomalies.
 5. Verified Logback, SDK-exporter and loopback HTTP integration plus explicit limits for production aggregators, remote OTLP collectors and external endpoints.
 6. Version finalized (not `-SNAPSHOT`), release notes/changelog, compatibility and supported-Java policy documented.
@@ -105,6 +105,14 @@ A run in shared CI provides a *diagnostic baseline only*. It is not a throughput
 ## Draft release notes
 
 A provisional, unpublished list of Satellite 2.x changes is maintained in [CHANGELOG.md](../CHANGELOG.md). It is not a release tag, a publishing approval or a stability/compatibility commitment.
+
+## Dependency Graph coverage gap
+
+On [PR #50](https://github.com/mikusher/satellite/pull/50), the `Dependency Review` workflow displayed a green job, but its `Review dependency changes` step was **skipped** because the preliminary GitHub SBOM request returned **HTTP 404**. This is not a completed dependency vulnerability review.
+
+A separate [Release security preflight](../.github/workflows/release-security-preflight.yml) is available as a **manual, fail-closed** workflow. It requires a successful Dependency Graph request and access to open Dependabot alerts; unknown API responses or critical/high alerts block release. The workflow has no publish step and is not a required development PR check.
+
+Before a release, enable/configure **Dependency Graph** and **Dependabot alerts** in the repository's code security settings, ensure the workflow token has access, rerun the preflight on the candidate commit, and review medium/low alerts individually. There is no authenticated alert evidence yet.
 
 ## Current decision
 

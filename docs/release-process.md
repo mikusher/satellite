@@ -10,10 +10,27 @@ A stable release must meet the conditions in [release readiness](release-readine
 
 1. Reactor verification on Java 11 / 17 / 21.
 2. Independent consumer integration tests on Java 11 / 21, including live Logback events, SDK-exported spans and loopback HTTP.
-3. CodeQL and dependency review, with any release-blocking vulnerabilities resolved.
+3. CodeQL and the independent manual release security preflight both green, including actual Dependency Graph/Dependabot alert access; no unresolved release-blocking vulnerabilities.
 4. Candidate JMH results retained as diagnostic evidence, not an SLA.
 5. Finalized Java compatibility, version, changelog and artifacts.
 6. Explicit maintainer approval **before** creating/publishing a GitHub Release.
+
+## Security evidence: required before publishing
+
+The normal GitHub `Dependency Review` job may display success **without running the review**, because it skips when the Dependency Graph SBOM endpoint is not available. A recent workflow returned HTTP **404**, so dependency vulnerability coverage is **not verified**.
+
+Run the [Release security preflight](../.github/workflows/release-security-preflight.yml) manually against the intended release commit. It fails if:
+
+- the GitHub Dependency Graph endpoint is unavailable;
+- Dependabot open alerts cannot be retrieved with the workflow token;
+- the response is malformed or cannot be fully examined;
+- any open critical/high Dependabot alert exists.
+
+Only the counts of advisory severities are printed, never advisory payloads or credentials. Medium and low severity alerts must still be reviewed before GA. Repository code security settings may need Dependency Graph and Dependabot alerts enabled, with suitable API permissions.
+
+The manual workflow uses the standard GitHub Actions token by default. If it lacks permission to read Dependabot alerts, configure an optional repository Actions secret named `RELEASE_SECURITY_TOKEN` with narrowly scoped **read** access to the repository's Dependabot alerts; this token is never printed. Do not grant package publication permissions to this read-only gate.
+
+The security preflight does not publish anything and does not replace CodeQL, dependency policy review or independent audit.
 
 ## Version and tag contract
 
