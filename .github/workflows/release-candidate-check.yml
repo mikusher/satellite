@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload isolated staging inventory
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: satellite-candidate-staging-sha256
           path: ${{ runner.temp }}/satellite-inventory-sha256.txt
