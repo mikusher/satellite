@@ -17,10 +17,10 @@ jobs:
           fetch-depth: 0
 
       - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@v3.99.0
+        uses: trufflesecurity/trufflehog@v3.97.5
         with:
           path: ./
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
           head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || '' }}
-          version: '3.99.0'
+          version: '3.97.5'
           extra_args: --only-verified
