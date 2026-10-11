@@ -11,7 +11,7 @@
   <properties>
     <maven.compiler.release>11</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <satellite.version>2.0.0-SNAPSHOT</satellite.version>
+    <satellite.version>2.0.0-rc.1</satellite.version>
   </properties>
   <dependencies>
     <dependency><groupId>io.github.mikusher</groupId><artifactId>satellite-data</artifactId><version>${satellite.version}</version></dependency>
